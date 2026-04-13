@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#07070f" />
+  <title>Løpetrener – Holmenkollstafetten</title>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { min-height: 100%; }
+    body { background: #07070f; color: #fff; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+    input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:4px;background:rgba(255,255,255,0.1);outline:none;width:100%;}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#f97316,#ea580c);cursor:pointer;box-shadow:0 0 10px rgba(249,115,22,0.5);}
+    input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.2); }
+    ::-webkit-scrollbar { height: 3px; width: 3px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    select option { background: #1a1a2e; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect } = React;
+
+    // ── STORAGE ──
+    // Personal data: localStorage (private, per device)
+    const pg = async (k) => { try { const v = localStorage.getItem(k); return v ? { value: v } : null; } catch { return null; } };
+    const ps = async (k, v) => { try { const s = typeof v === "string" ? v : JSON.stringify(v); localStorage.setItem(k, s); return { value: s }; } catch { return null; } };
+    // Shared data: Vercel KV via serverless API
+    const sg = async (k) => { try { const r = await fetch(`/api/storage?key=${encodeURIComponent(k)}`); if (!r.ok) return null; const d = await r.json(); return d.value != null ? { value: typeof d.value === "string" ? d.value : JSON.stringify(d.value) } : null; } catch { return null; } };
+    const ss = async (k, v) => { try { await fetch("/api/storage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: k, value: typeof v === "string" ? v : JSON.stringify(v) }) }); return { value: v }; } catch { return null; } };
+
+    // ── CONSTANTS ──
+    const TYPES    = ["Rolig","Terskel","Bakkeintervall","Intervall","Langtur","Konkurranse","Hvile"];
+    const STATUSES = ["Fullført","Delvis","Hoppet over"];
+    const DAYS     = ["Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag","Søndag"];
+    const TEST_TYPES    = ["Bakkeintervall","Terskeløkt","Konkurransespesifikk økt","Tidskjøring 3km","Tidskjøring 5km"];
+    const AVATAR_COLORS = ["#f97316","#818cf8","#22c55e","#ec4899","#06b6d4","#f59e0b","#8b5cf6"];
+    const TYPE_COLORS   = { Rolig:"#22c55e",Terskel:"#f97316",Bakkeintervall:"#ef4444",Intervall:"#f59e0b",Langtur:"#818cf8",Konkurranse:"#ec4899",Hvile:"#334155" };
+
+    const ETAPPER = [
+      { nr:1,  dist:1100, profil:"Kupert",         start:"Knud Knudsens plass",  veksling:"Louises gate" },
+      { nr:2,  dist:1070, profil:"Bratt stigning",  start:"Louises gate",         veksling:"Wolffs gate" },
+      { nr:3,  dist:595,  profil:"Flat",            start:"Wolffs gate",           veksling:"Wilhelm Færdens vei" },
+      { nr:4,  dist:1920, profil:"Kupert",          start:"Wilhelm Færdens vei",  veksling:"Forskningsveien" },
+      { nr:5,  dist:1210, profil:"Kupert",          start:"Forskningsveien",       veksling:"Holmenveien" },
+      { nr:6,  dist:1250, profil:"Bratt stigning",  start:"Holmenveien",           veksling:"Slemdal skole" },
+      { nr:7,  dist:1770, profil:"Bratt stigning",  start:"Slemdal skole",         veksling:"Besserud" },
+      { nr:8,  dist:1780, profil:"Nedover",         start:"Besserud",              veksling:"Gressbanen" },
+      { nr:9,  dist:625,  profil:"Nedover",         start:"Gressbanen",            veksling:"Holmendammen" },
+      { nr:10, dist:2860, profil:"Nedover",         start:"Holmendammen",          veksling:"Frognerparken" },
+      { nr:11, dist:1520, profil:"Kupert",          start:"Frognerparken",         veksling:"Nordraaks gate" },
+      { nr:12, dist:350,  profil:"Flat",            start:"Nordraaks gate",        veksling:"Arno Bergs plass" },
+      { nr:13, dist:1080, profil:"Lett stigning",   start:"Arno Bergs plass",     veksling:"Camilla Collets vei" },
+      { nr:14, dist:710,  profil:"Flat",            start:"Camilla Collets vei",  veksling:"Bislettgata" },
+      { nr:15, dist:535,  profil:"Flat",            start:"Bislettgata",           veksling:"Mål (Bislett)" },
+    ];
+    const PROFIL_ICON  = { "Flat":"→","Lett stigning":"↗","Kupert":"〜","Bratt stigning":"↑","Nedover":"↓" };
+    const PROFIL_COLOR = { "Flat":"#22c55e","Lett stigning":"#86efac","Kupert":"#f97316","Bratt stigning":"#ef4444","Nedover":"#818cf8" };
+    const WAYPOINTS = [
+      {x:338,y:210},{x:320,y:196},{x:302,y:181},{x:262,y:161},{x:220,y:136},
+      {x:154,y:107},{x:88,y:80},{x:22,y:22},{x:44,y:56},{x:64,y:90},
+      {x:198,y:191},{x:250,y:203},{x:276,y:210},{x:296,y:213},{x:314,y:212},{x:338,y:210},
+    ];
+    const ELEVATIONS = [62,88,133,133,183,218,272,352,208,163,30,44,44,56,56,54];
+    const blankPlan = DAYS.map(d => ({ day:d, type:"Hvile", distance:"", note:"" }));
+    const today = () => new Date().toISOString().split("T")[0];
+
+    function calcFinishTime(dist, pace) {
+      const p = pace.split(":"); if (p.length !== 2) return null;
+      const sec = (parseInt(p[0])*60+parseInt(p[1]))*(dist/1000);
+      if (isNaN(sec)) return null;
+      const m=Math.floor(sec/60), s=Math.round(sec%60);
+      return `${m}:${s.toString().padStart(2,"0")}`;
+    }
+    function calcPace(dist, time) {
+      const p = time.split(":"); if (p.length !== 2) return null;
+      const sec = parseInt(p[0])*60+parseInt(p[1]);
+      if (isNaN(sec)||sec===0) return null;
+      const ps=sec/(dist/1000), m=Math.floor(ps/60), s=Math.round(ps%60);
+      return `${m}:${s.toString().padStart(2,"0")}`;
+    }
+    function avatarColor(name) { return AVATAR_COLORS[name.split("").reduce((s,c)=>s+c.charCodeAt(0),0)%AVATAR_COLORS.length]; }
+    function initials(name) { return name.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2); }
+    function distLabel(d) { return d<1000?`${d} m`:`${(d/1000).toFixed(2).replace(".",",")} km`; }
+
+    const C = {
+      bg:"#07070f",surface:"#0c0c18",card:"#10101e",
+      border:"rgba(255,255,255,0.07)",borderAccent:"rgba(249,115,22,0.28)",
+      accent:"#f97316",accentBg:"rgba(249,115,22,0.1)",
+      ok:"#22c55e",warn:"#eab308",err:"#ef4444",pur:"#818cf8",
+      t1:"#ffffff",t2:"rgba(255,255,255,0.55)",t3:"rgba(255,255,255,0.28)",
+    };
+    const card = (accent) => ({
+      background: accent?"linear-gradient(135deg,rgba(249,115,22,0.09),rgba(239,68,68,0.04))":"linear-gradient(145deg,#12121f,#0d0d1a)",
+      border:`1px solid ${accent?C.borderAccent:C.border}`,borderRadius:20,padding:20,
+      boxShadow:accent?"0 0 32px rgba(249,115,22,0.07)":"none",
+    });
+    const iS = { width:"100%",background:"rgba(255,255,255,0.04)",color:"#fff",border:"1px solid rgba(255,255,255,0.1)",borderRadius:10,padding:"9px 13px",fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box" };
+
+    // ── SHARED UI ──
+    function Lbl({text,children}){ return <div style={{marginBottom:4}}><div style={{fontSize:10,color:C.t3,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>{text}</div>{children}</div>; }
+    function Inp({value,onChange,placeholder}){ return <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={iS}/>; }
+    function Sel({value,options,onChange}){ return <select value={value} onChange={e=>onChange(e.target.value)} style={{...iS,cursor:"pointer"}}>{options.map(o=><option key={o}>{o}</option>)}</select>; }
+    function Btn({onClick,label,saved,disabled}){
+      let bg="linear-gradient(135deg,#f97316,#ea580c)",sh="0 0 20px rgba(249,115,22,0.32)";
+      if(saved){bg="linear-gradient(135deg,#166534,#14532d)";sh="0 0 20px rgba(34,197,94,0.25)";}
+      if(disabled){bg="rgba(255,255,255,0.06)";sh="none";}
+      return <button onClick={onClick} disabled={disabled} style={{width:"100%",padding:13,borderRadius:12,border:"none",cursor:disabled?"default":"pointer",background:bg,color:disabled?C.t3:"#fff",fontWeight:700,fontSize:14,boxShadow:sh,transition:"all 0.2s",marginTop:4}}>{saved?"✓ Lagret!":label}</button>;
+    }
+    function GlowBar({value,max,color}){
+      const pct=Math.min((value/max)*100,100);
+      return <div style={{background:"rgba(255,255,255,0.07)",borderRadius:6,height:5,marginTop:10}}><div style={{width:`${pct}%`,background:`linear-gradient(90deg,${color},${color}cc)`,height:5,borderRadius:6,boxShadow:`0 0 8px ${color}60`,transition:"width 0.5s ease"}}/></div>;
+    }
+    function SBadge({status}){
+      const m={"Fullført":[C.ok,"rgba(34,197,94,0.1)"],"Delvis":[C.warn,"rgba(234,179,8,0.1)"],"Hoppet over":[C.err,"rgba(239,68,68,0.1)"]};
+      const[col,bg]=m[status]||[C.t2,"rgba(255,255,255,0.05)"];
+      return <span style={{background:bg,color:col,padding:"2px 8px",borderRadius:8,fontSize:10,fontWeight:700,marginLeft:8}}>{status}</span>;
+    }
+    function ShareToggle({on,onToggle,label}){
+      return <button onClick={onToggle} style={{display:"flex",alignItems:"center",gap:12,background:on?"rgba(249,115,22,0.07)":"rgba(255,255,255,0.02)",border:`1px solid ${on?"rgba(249,115,22,0.32)":"rgba(255,255,255,0.07)"}`,borderRadius:12,padding:"10px 14px",cursor:"pointer",width:"100%",marginBottom:12,transition:"all 0.2s"}}>
+        <div style={{width:38,height:22,borderRadius:11,background:on?"linear-gradient(135deg,#f97316,#ea580c)":"rgba(255,255,255,0.1)",position:"relative",transition:"background 0.2s",flexShrink:0,boxShadow:on?"0 0 10px rgba(249,115,22,0.4)":"none"}}>
+          <div style={{position:"absolute",top:2,left:on?18:2,width:18,height:18,background:"#fff",borderRadius:"50%",transition:"left 0.2s"}}/>
+        </div>
+        <span style={{fontSize:12,color:on?C.accent:C.t3,fontWeight:on?600:400}}>{label}</span>
+      </button>;
+    }
+
+    // ── ELEVATION PROFILE ──
+    function ElevationProfile({selectedNr}){
+      const W=320,H=80,PAD={l:6,r:6,t:14,b:22};
+      const totalDist=ETAPPER.reduce((s,e)=>s+e.dist,0);
+      const maxE=Math.max(...ELEVATIONS),minE=Math.min(...ELEVATIONS);
+      const plotW=W-PAD.l-PAD.r,plotH=H-PAD.t-PAD.b;
+      const ey=e=>PAD.t+plotH-((e-minE)/(maxE-minE))*plotH;
+      const cumD=[0]; ETAPPER.forEach(e=>cumD.push(cumD[cumD.length-1]+e.dist));
+      const dx=d=>PAD.l+(d/totalDist)*plotW;
+      const pts=ELEVATIONS.map((e,i)=>({x:dx(cumD[i]),y:ey(e)}));
+      const area=`M ${pts[0].x},${H-PAD.b} `+pts.map(p=>`L ${p.x},${p.y}`).join(" ")+` L ${pts[pts.length-1].x},${H-PAD.b} Z`;
+      return <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{display:"block",marginTop:10}}>
+        <path d={area} fill="rgba(255,255,255,0.03)"/>
+        {ETAPPER.map((e,i)=>{
+          const x1=pts[i].x,y1=pts[i].y,x2=pts[i+1].x,y2=pts[i+1].y;
+          const col=PROFIL_COLOR[e.profil]||C.accent,sel=selectedNr===e.nr;
+          const seg=`M ${x1},${H-PAD.b} L ${x1},${y1} L ${x2},${y2} L ${x2},${H-PAD.b} Z`;
+          return <g key={e.nr}><path d={seg} fill={sel?`${col}45`:`${col}10`}/><line x1={x1} y1={y1} x2={x2} y2={y2} stroke={col} strokeWidth={sel?2.5:1.2} strokeLinecap="round" opacity={sel?1:0.4}/></g>;
+        })}
+        {selectedNr&&(()=>{
+          const i=selectedNr-1,mx=(pts[i].x+pts[i+1].x)/2,my=Math.max(Math.min(pts[i].y,pts[i+1].y)-4,PAD.t+4),col=PROFIL_COLOR[ETAPPER[i].profil]||C.accent;
+          return <text x={mx} y={my} textAnchor="middle" fill={col} fontSize={8} fontWeight="700">E{selectedNr}</text>;
+        })()}
+        <line x1={PAD.l} y1={H-PAD.b} x2={W-PAD.r} y2={H-PAD.b} stroke="rgba(255,255,255,0.12)" strokeWidth={1}/>
+        <text x={PAD.l} y={H-6} fontSize={7.5} fill="rgba(255,255,255,0.3)">Start</text>
+        <text x={dx(cumD[7])} y={H-6} fontSize={7.5} fill="rgba(255,255,255,0.3)" textAnchor="middle">Besserud ▲</text>
+        <text x={W-PAD.r} y={H-6} fontSize={7.5} fill="rgba(255,255,255,0.3)" textAnchor="end">Mål</text>
+        <text x={PAD.l+2} y={PAD.t+3} fontSize={7} fill="rgba(255,255,255,0.2)">{maxE}m</text>
+      </svg>;
+    }
+
+    // ── ROUTE MAP ──
+    function EtappeMap({selectedNr}){
+      const W=360,H=228;
+      const profColor=selectedNr?(PROFIL_COLOR[ETAPPER[selectedNr-1].profil]||C.accent):C.accent;
+      return <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{display:"block",borderRadius:14,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.06)"}}>
+        {ETAPPER.map((e,i)=>{
+          const p1=WAYPOINTS[i],p2=WAYPOINTS[i+1],col=PROFIL_COLOR[e.profil]||C.accent,sel=selectedNr===e.nr,dim=selectedNr&&!sel;
+          return <line key={e.nr} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={dim?`${col}30`:col} strokeWidth={sel?6:dim?2:2.5} strokeLinecap="round"/>;
+        })}
+        {WAYPOINTS.slice(1,-1).map((wp,i)=>{
+          const isSel=selectedNr&&(i===selectedNr-1||i===selectedNr);
+          return <circle key={i} cx={wp.x} cy={wp.y} r={isSel?4:2} fill={isSel?profColor:"rgba(255,255,255,0.18)"}/>;
+        })}
+        <circle cx={338} cy={210} r={9} fill="rgba(249,115,22,0.15)" stroke="#f97316" strokeWidth={1.5}/>
+        <circle cx={338} cy={210} r={4} fill="#f97316"/>
+        <circle cx={22} cy={22} r={5} fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.45)" strokeWidth={1.5}/>
+        {selectedNr&&(()=>{
+          const i=selectedNr-1,mp={x:(WAYPOINTS[i].x+WAYPOINTS[i+1].x)/2,y:(WAYPOINTS[i].y+WAYPOINTS[i+1].y)/2};
+          return <g><circle cx={mp.x} cy={mp.y} r={18} fill={`${profColor}22`}/><circle cx={mp.x} cy={mp.y} r={12} fill={profColor}/><text x={mp.x} y={mp.y+4} textAnchor="middle" fontSize={11} fill="#fff" fontWeight="800">{selectedNr}</text></g>;
+        })()}
+        <text x={328} y={224} textAnchor="end" fontSize={8.5} fill="rgba(255,255,255,0.35)">Start/Mål</text>
+        <text x={30} y={36} textAnchor="start" fontSize={8.5} fill="rgba(255,255,255,0.35)">Besserud ▲</text>
+        {[["#ef4444","↑ Opp"],["#818cf8","↓ Ned"],["#f97316","〜 Kupert"],["#22c55e","→ Flat"]].map(([col,lbl],i)=>(
+          <g key={i}><rect x={8+i*80} y={H-14} width={10} height={4} rx={2} fill={col}/><text x={22+i*80} y={H-10} fontSize={7} fill="rgba(255,255,255,0.35)">{lbl}</text></g>
+        ))}
+      </svg>;
+    }
+
+    // ── ONBOARDING ──
+    function Onboarding({onSubmit,existing}){
+      const[step,setStep]=useState(1);
+      const[name,setName]=useState(existing?.name||"");
+      const[etappeNr,setEtappeNr]=useState(existing?.etappe?parseInt(existing.etappe.replace("Etappe ","")):null);
+      const[goalMode,setGoalMode]=useState("pace");
+      const[pace,setPace]=useState("");
+      const[finishTime,setFinishTime]=useState("");
+      const etappe=etappeNr?ETAPPER[etappeNr-1]:null;
+      const profColor=etappe?(PROFIL_COLOR[etappe.profil]||C.accent):C.accent;
+      const derivedFinish=goalMode==="pace"&&pace.includes(":")&&etappe?calcFinishTime(etappe.dist,pace):null;
+      const derivedPace=goalMode==="time"&&finishTime.includes(":")&&etappe?calcPace(etappe.dist,finishTime):null;
+      const goalString=goalMode==="pace"?`${pace}/km${derivedFinish?` · ${derivedFinish}`:""}`:` ${finishTime}${derivedPace?` · ${derivedPace}/km`:""}`;
+      const canDone=goalMode==="pace"?pace.includes(":"):finishTime.includes(":");
+      return (
+        <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",padding:"24px 20px 40px",overflowY:"auto"}}>
+          <div style={{marginBottom:24,textAlign:"center"}}>
+            <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#f97316,#ef4444)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,margin:"0 auto 12px",boxShadow:"0 0 32px rgba(249,115,22,0.45)"}}>🏃</div>
+            <div style={{fontWeight:800,fontSize:20,color:C.t1,letterSpacing:-0.5}}>Holmenkollstafetten</div>
+            <div style={{color:C.t2,fontSize:12,marginTop:3}}>9. mai 2026 · Oslo</div>
+          </div>
+          <div style={{display:"flex",gap:8,marginBottom:24}}>
+            {[1,2,3].map(s=><div key={s} style={{width:s===step?28:8,height:8,borderRadius:4,background:s===step?C.accent:s<step?"rgba(249,115,22,0.4)":"rgba(255,255,255,0.1)",transition:"all 0.3s"}}/>)}
+          </div>
+          <div style={{width:"100%",maxWidth:400}}>
+            {step===1&&<div style={{display:"flex",flexDirection:"column",gap:20}}>
+              <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,color:C.t1,marginBottom:6}}>Hva heter du?</div><div style={{fontSize:13,color:C.t2}}>Vi bruker navnet ditt i laget</div></div>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Skriv inn navn…" autoFocus onKeyDown={e=>e.key==="Enter"&&name.trim()&&setStep(2)} style={{...iS,fontSize:18,padding:"14px 16px",borderRadius:14,textAlign:"center",background:"rgba(255,255,255,0.05)",border:`1px solid ${name.trim()?C.accent:"rgba(255,255,255,0.1)"}`,transition:"border-color 0.2s"}}/>
+              <Btn onClick={()=>setStep(2)} label="Neste →" disabled={!name.trim()}/>
+            </div>}
+            {step===2&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+              <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,color:C.t1,marginBottom:4}}>Hvilken etappe løper du?</div><div style={{fontSize:13,color:C.t2}}>Se løypen og trykk på etappenummeret ditt</div></div>
+              <EtappeMap selectedNr={etappeNr}/>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
+                {ETAPPER.map(e=>{const pc=PROFIL_COLOR[e.profil],sel=etappeNr===e.nr;return<button key={e.nr} onClick={()=>setEtappeNr(e.nr)} style={{padding:"11px 4px",borderRadius:12,border:`1px solid ${sel?pc:"rgba(255,255,255,0.08)"}`,background:sel?`${pc}22`:"rgba(255,255,255,0.03)",color:sel?pc:C.t2,fontWeight:sel?800:400,fontSize:15,cursor:"pointer",transition:"all 0.15s",boxShadow:sel?`0 0 12px ${pc}40`:"none"}}>{e.nr}</button>;})}
+              </div>
+              {etappe&&<div style={{background:`linear-gradient(135deg,${profColor}12,rgba(16,16,30,0))`,border:`1px solid ${profColor}28`,borderRadius:16,padding:"14px 16px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+                  <div><div style={{fontWeight:800,fontSize:17,color:C.t1}}>Etappe {etappe.nr}</div><div style={{fontSize:11,color:C.t2,marginTop:2}}>{etappe.start}</div><div style={{fontSize:11,color:C.t3}}>→ {etappe.veksling}</div></div>
+                  <div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:800,color:profColor}}>{distLabel(etappe.dist)}</div><div style={{fontSize:11,color:profColor,marginTop:2}}>{PROFIL_ICON[etappe.profil]} {etappe.profil}</div></div>
+                </div>
+                <div style={{borderTop:`1px solid ${profColor}20`,paddingTop:8,marginTop:4}}>
+                  <div style={{fontSize:9,color:C.t3,letterSpacing:1.5,textTransform:"uppercase",marginBottom:2}}>Løypeprofil</div>
+                  <ElevationProfile selectedNr={etappeNr}/>
+                </div>
+              </div>}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <button onClick={()=>setStep(1)} style={{padding:12,borderRadius:12,border:`1px solid ${C.border}`,background:"transparent",color:C.t2,fontSize:14,cursor:"pointer"}}>← Tilbake</button>
+                <Btn onClick={()=>setStep(3)} label="Neste →" disabled={!etappeNr}/>
+              </div>
+            </div>}
+            {step===3&&etappe&&<div style={{display:"flex",flexDirection:"column",gap:20}}>
+              <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,color:C.t1,marginBottom:4}}>Hva er målet ditt?</div><div style={{fontSize:13,color:C.t2}}>Etappe {etappe.nr} · {distLabel(etappe.dist)} · {PROFIL_ICON[etappe.profil]} {etappe.profil}</div></div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,background:"rgba(255,255,255,0.04)",padding:4,borderRadius:14}}>
+                {[{m:"pace",l:"Tempo / km"},{m:"time",l:"Sluttid"}].map(({m,l})=><button key={m} onClick={()=>setGoalMode(m)} style={{padding:"10px",borderRadius:10,border:`1px solid ${goalMode===m?C.borderAccent:"transparent"}`,background:goalMode===m?C.accentBg:"transparent",color:goalMode===m?C.accent:C.t2,fontWeight:goalMode===m?700:400,fontSize:13,cursor:"pointer"}}>{l}</button>)}
+              </div>
+              {goalMode==="pace"?<div>
+                <div style={{fontSize:12,color:C.t3,marginBottom:8}}>Tempo per kilometer</div>
+                <input value={pace} onChange={e=>setPace(e.target.value)} placeholder="f.eks. 5:30" style={{...iS,fontSize:28,fontWeight:700,textAlign:"center",padding:"16px",borderRadius:14,letterSpacing:1,border:`1px solid ${pace.includes(":")?C.accent:"rgba(255,255,255,0.1)"}`}}/>
+                {derivedFinish&&<div style={{textAlign:"center",marginTop:12,fontSize:14,color:C.t2}}>Estimert sluttid: <span style={{color:C.accent,fontWeight:800,fontSize:18}}>{derivedFinish}</span></div>}
+              </div>:<div>
+                <div style={{fontSize:12,color:C.t3,marginBottom:8}}>Sluttid på etappen (MM:SS)</div>
+                <input value={finishTime} onChange={e=>setFinishTime(e.target.value)} placeholder="f.eks. 6:52" style={{...iS,fontSize:28,fontWeight:700,textAlign:"center",padding:"16px",borderRadius:14,letterSpacing:1,border:`1px solid ${finishTime.includes(":")?C.accent:"rgba(255,255,255,0.1)"}`}}/>
+                {derivedPace&&<div style={{textAlign:"center",marginTop:12,fontSize:14,color:C.t2}}>Estimert tempo: <span style={{color:C.accent,fontWeight:800,fontSize:18}}>{derivedPace}/km</span></div>}
+              </div>}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <button onClick={()=>setStep(2)} style={{padding:12,borderRadius:12,border:`1px solid ${C.border}`,background:"transparent",color:C.t2,fontSize:14,cursor:"pointer"}}>← Tilbake</button>
+                <Btn onClick={()=>canDone&&onSubmit(name.trim(),`Etappe ${etappe.nr}`,goalString,etappe)} label="Kom i gang 🏃" disabled={!canDone}/>
+              </div>
+            </div>}
+          </div>
+        </div>
+      );
+    }
+
+    // ── APP ──
+    function App(){
+      const[screen,setScreen]=useState("loading");
+      const[user,setUser]=useState(null);
+      const[view,setView]=useState("dashboard");
+      const[plan,setPlan]=useState(blankPlan);
+      const[log,setLog]=useState([]);
+      const[forms,setForms]=useState([]);
+      const[tests,setTests]=useState([]);
+      const[myAI,setMyAI]=useState("");
+      const[profiles,setProfiles]=useState({});
+      const[feed,setFeed]=useState([]);
+      const[loadingAI,setLoadingAI]=useState(false);
+
+      useEffect(()=>{init();},[]);
+
+      async function init(){
+        const[nameR,planR,logR,formR,testR,aiR,profR,feedR]=await Promise.all([pg("my-username"),pg("my-plan"),pg("my-log"),pg("my-form"),pg("my-tests"),pg("my-ai"),sg("hk-profiles"),sg("hk-feed")]);
+        if(planR)setPlan(JSON.parse(planR.value));
+        if(logR)setLog(JSON.parse(logR.value));
+        if(formR)setForms(JSON.parse(formR.value));
+        if(testR)setTests(JSON.parse(testR.value));
+        if(aiR)setMyAI(aiR.value);
+        const profs=profR?JSON.parse(profR.value):{};
+        setProfiles(profs);
+        if(feedR)setFeed(JSON.parse(feedR.value));
+        if(nameR&&profs[nameR.value]){setUser({name:nameR.value,...profs[nameR.value]});setScreen("main");}
+        else setScreen("onboarding");
+      }
+
+      async function onboard(name,etappe,goal,etappeInfo){
+        const prof={etappe,goal,joined:today(),dist:etappeInfo?.dist,profil:etappeInfo?.profil};
+        setUser({name,...prof});
+        await ps("my-username",name);
+        const pr=await sg("hk-profiles");
+        const cur=pr?JSON.parse(pr.value):{};
+        cur[name]=prof;
+        await ss("hk-profiles",cur);
+        setProfiles(cur);
+        setScreen("main");
+      }
+
+      async function updateProfile(name,etappe,goal,etappeInfo){
+        const prof={etappe,goal,joined:user?.joined||today(),dist:etappeInfo?.dist,profil:etappeInfo?.profil};
+        setUser({name,...prof});
+        await ps("my-username",name);
+        const pr=await sg("hk-profiles");
+        const cur=pr?JSON.parse(pr.value):{};
+        cur[name]=prof;
+        await ss("hk-profiles",cur);
+        setProfiles(cur);
+        setScreen("main");
+      }
+
+      async function addLog(e){const n=[...log,e];setLog(n);await ps("my-log",n);}
+      async function addForm(e){const n=[...forms,e];setForms(n);await ps("my-form",n);}
+      async function addTest(e){const n=[...tests,e];setTests(n);await ps("my-tests",n);}
+      async function savePlan(d){setPlan(d);await ps("my-plan",d);}
+
+      async function shareToFeed(item){
+        const fr=await sg("hk-feed");
+        const cur=fr?JSON.parse(fr.value):[];
+        const upd=[{...item,username:user.name,etappe:user.etappe,ts:new Date().toISOString()},...cur].slice(0,100);
+        await ss("hk-feed",upd);setFeed(upd);
+      }
+      async function refreshTeam(){
+        const[pr,fr]=await Promise.all([sg("hk-profiles"),sg("hk-feed")]);
+        if(pr)setProfiles(JSON.parse(pr.value));
+        if(fr)setFeed(JSON.parse(fr.value));
+      }
+      async function getAI(){
+        setLoadingAI(true);
+        try{
+          const ctx=`Du er en erfaren løpetrener. Utøver: ${user.name}, ${user.etappe}, Mål: ${user.goal}. UKEPLAN:${JSON.stringify(plan)} LOGG:${JSON.stringify(log.slice(-20))} FORM:${JSON.stringify(forms.slice(-14))} TESTER:${JSON.stringify(tests)} Kortfattet, personlig tilbakemelding på norsk, maks 180 ord. Punktliste + oppsummering.`;
+          const res=await fetch("/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:ctx}]})});
+          const data=await res.json();
+          const txt=data.content?.[0]?.text||"Feil.";
+          setMyAI(txt);await ps("my-ai",txt);
+        }catch{setMyAI("Feil ved henting av AI-tilbakemelding.");}
+        setLoadingAI(false);
+      }
+
+      if(screen==="loading")return<div style={{height:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}><div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#f97316,#ef4444)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,boxShadow:"0 0 30px rgba(249,115,22,0.4)"}}>🏃</div><div style={{color:C.t3,fontSize:13,letterSpacing:1}}>LASTER…</div></div>;
+      if(screen==="onboarding")return<Onboarding onSubmit={onboard}/>;
+      if(screen==="editprofile")return<Onboarding onSubmit={updateProfile} existing={user}/>;
+
+      const tabs=[{id:"dashboard",icon:"📊",label:"Oversikt"},{id:"log",icon:"✏️",label:"Logg"},{id:"form",icon:"💪",label:"Form"},{id:"plan",icon:"📅",label:"Plan"},{id:"tests",icon:"🏆",label:"Tester"},{id:"team",icon:"👥",label:"Laget"}];
+
+      return<div style={{minHeight:"100vh",background:C.bg,color:C.t1,fontFamily:"-apple-system,BlinkMacSystemFont,system-ui,sans-serif",paddingBottom:72}}>
+        <div style={{background:"rgba(10,10,22,0.97)",borderBottom:`1px solid ${C.border}`,padding:"12px 20px",position:"sticky",top:0,zIndex:10,backdropFilter:"blur(20px)"}}>
+          <div style={{maxWidth:640,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <div style={{width:34,height:34,borderRadius:10,background:"linear-gradient(135deg,#f97316,#ef4444)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,boxShadow:"0 0 14px rgba(249,115,22,0.45)"}}>🏃</div>
+              <div><div style={{fontWeight:700,fontSize:14,letterSpacing:-0.3}}>{user.name}</div><div style={{fontSize:11,color:C.accent}}>{user.etappe}{user.dist?` · ${distLabel(user.dist)}`:""} · {user.goal}</div></div>
+            </div>
+            <button onClick={()=>setScreen("editprofile")} style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${C.border}`,borderRadius:10,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16}}>⚙️</button>
+          </div>
+        </div>
+        <div style={{maxWidth:640,margin:"0 auto",padding:"20px 16px"}}>
+          {view==="dashboard"&&<Dashboard user={user} log={log} forms={forms} tests={tests} aiFeedback={myAI} loadingAI={loadingAI} onGetAI={getAI} plan={plan}/>}
+          {view==="plan"&&<PlanView plan={plan} onSave={savePlan}/>}
+          {view==="log"&&<LogView plan={plan} onSave={addLog} onShare={shareToFeed}/>}
+          {view==="form"&&<FormView forms={forms} onSave={addForm} onShare={shareToFeed}/>}
+          {view==="tests"&&<TestsView tests={tests} onSave={addTest} onShare={shareToFeed}/>}
+          {view==="team"&&<TeamView profiles={profiles} feed={feed} currentUser={user.name}/>}
+        </div>
+        <div style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,10,22,0.97)",borderTop:`1px solid ${C.border}`,backdropFilter:"blur(20px)",zIndex:10}}>
+          <div style={{maxWidth:640,margin:"0 auto",display:"flex"}}>
+            {tabs.map(t=><button key={t.id} onClick={()=>{if(t.id==="team")refreshTeam();setView(t.id);}} style={{flex:1,padding:"10px 4px 12px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,borderTop:view===t.id?`2px solid ${C.accent}`:"2px solid transparent"}}>
+              <span style={{fontSize:18,lineHeight:1}}>{t.icon}</span>
+              <span style={{fontSize:9,color:view===t.id?C.accent:C.t3,fontWeight:view===t.id?700:400,letterSpacing:0.5,textTransform:"uppercase"}}>{t.label}</span>
+            </button>)}
+          </div>
+        </div>
+      </div>;
+    }
+
+    // ── DASHBOARD ──
+    function Dashboard({user,log,forms,tests,aiFeedback,loadingAI,onGetAI,plan}){
+      const ago=n=>{const d=new Date();d.setDate(d.getDate()-n);return d;};
+      const l7=log.filter(e=>new Date(e.date)>=ago(7));
+      const done=l7.filter(e=>e.status==="Fullført").length,part=l7.filter(e=>e.status==="Delvis").length,skip=l7.filter(e=>e.status==="Hoppet over").length;
+      const f7=forms.slice(-7);
+      const avgF=f7.length>0?(f7.reduce((s,f)=>s+(f.sleep+f.legs+f.motivation+f.energy)/4,0)/f7.length).toFixed(1):null;
+      const planned=plan.filter(d=>d.type!=="Hvile").length,pct=planned>0?Math.round((done/planned)*100):null;
+      const lastTest=tests.length>0?tests[tests.length-1]:null;
+      const todayDay=DAYS[new Date().getDay()===0?6:new Date().getDay()-1];
+      const todayPlan=plan.find(d=>d.day===todayDay);
+      const userEtappeNr=user.etappe?parseInt(user.etappe.replace("Etappe ","")):null;
+      return<div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{background:"linear-gradient(135deg,rgba(249,115,22,0.14),rgba(239,68,68,0.07),rgba(16,16,30,0))",border:`1px solid rgba(249,115,22,0.3)`,borderRadius:20,padding:20,position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",top:-20,right:-20,width:100,height:100,borderRadius:"50%",background:"radial-gradient(circle,rgba(249,115,22,0.15),transparent 70%)"}}/>
+          <div style={{fontSize:10,color:C.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>🎯 Mål</div>
+          <div style={{fontWeight:800,fontSize:18,letterSpacing:-0.5}}>{user.etappe}{user.dist?` · ${distLabel(user.dist)}`:""}</div>
+          <div style={{color:C.t2,fontSize:13,marginTop:3}}>Holmenkollstafetten · <span style={{color:C.accent,fontWeight:700}}>{user.goal}</span></div>
+        </div>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:16}}>
+          <div style={{fontSize:10,color:C.t3,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>🗺 Din etappe på løypen</div>
+          <EtappeMap selectedNr={userEtappeNr}/>
+          <div style={{fontSize:10,color:C.t3,letterSpacing:1.5,textTransform:"uppercase",marginTop:14,marginBottom:2}}>Løypeprofil</div>
+          <ElevationProfile selectedNr={userEtappeNr}/>
+        </div>
+        {todayPlan&&todayPlan.type!=="Hvile"&&<div style={{background:"linear-gradient(135deg,rgba(129,140,248,0.09),rgba(99,102,241,0.04))",border:"1px solid rgba(129,140,248,0.22)",borderRadius:16,padding:"13px 16px",display:"flex",alignItems:"center",gap:12}}>
+          <span style={{fontSize:20}}>📅</span>
+          <div><div style={{fontSize:10,color:C.pur,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>Plan i dag</div><div style={{fontSize:13,fontWeight:500}}>{todayPlan.type}{todayPlan.distance?` · ${todayPlan.distance}`:""}{todayPlan.note?` — ${todayPlan.note}`:""}</div></div>
+        </div>}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+          {[["Fullført",done,C.ok],["Delvis",part,C.warn],["Hoppet",skip,C.err]].map(([l,v,c])=><div key={l} style={{background:`linear-gradient(135deg,${c}18,${c}06)`,border:`1px solid ${c}28`,borderRadius:16,padding:"14px 10px",textAlign:"center"}}><div style={{fontSize:9,color:c,letterSpacing:1.5,textTransform:"uppercase",marginBottom:6}}>{l}</div><div style={{fontSize:30,fontWeight:800,color:c,letterSpacing:-1}}>{v}</div><div style={{fontSize:9,color:C.t3,marginTop:4}}>7 dager</div></div>)}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:16}}>
+            <div style={{fontSize:9,color:C.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>Formscore</div>
+            {avgF?<><div style={{fontSize:30,fontWeight:800,color:C.accent,letterSpacing:-1}}>{avgF}<span style={{fontSize:13,color:C.t3,fontWeight:400}}>/5</span></div><GlowBar value={parseFloat(avgF)} max={5} color={C.accent}/><div style={{fontSize:10,color:C.t3,marginTop:6}}>snitt 7 dager</div></>:<div style={{color:C.t3,fontSize:12,paddingTop:4}}>Ingen data ennå</div>}
+          </div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:16}}>
+            <div style={{fontSize:9,color:C.pur,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>Planfølging</div>
+            {pct!==null?<><div style={{fontSize:30,fontWeight:800,color:C.pur,letterSpacing:-1}}>{pct}<span style={{fontSize:13,color:C.t3,fontWeight:400}}>%</span></div><GlowBar value={pct} max={100} color={C.pur}/><div style={{fontSize:10,color:C.t3,marginTop:6}}>denne uken</div></>:<div style={{color:C.t3,fontSize:12,paddingTop:4}}>Legg inn ukeplan</div>}
+          </div>
+        </div>
+        {lastTest&&<div style={{background:"linear-gradient(135deg,rgba(234,179,8,0.07),rgba(16,16,30,0))",border:"1px solid rgba(234,179,8,0.22)",borderRadius:20,padding:20}}>
+          <div style={{fontSize:10,color:C.warn,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>🏆 Siste nøkkeltest</div>
+          <div style={{display:"flex",justifyContent:"space-between"}}><div><div style={{fontWeight:700,fontSize:15}}>{lastTest.type}</div><div style={{color:C.warn,fontSize:13,marginTop:3}}>{lastTest.result}</div>{lastTest.note&&<div style={{color:C.t3,fontSize:11,marginTop:4}}>{lastTest.note}</div>}</div><div style={{fontSize:10,color:C.t3,background:"rgba(255,255,255,0.04)",padding:"4px 8px",borderRadius:8,alignSelf:"flex-start"}}>{lastTest.date}</div></div>
+        </div>}
+        <div style={{...card(true)}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div><div style={{fontSize:10,color:C.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>✦ AI-trener</div><div style={{fontSize:14,fontWeight:600}}>Personlig tilbakemelding</div></div>
+            <button onClick={onGetAI} disabled={loadingAI} style={{background:loadingAI?"rgba(255,255,255,0.06)":"linear-gradient(135deg,#f97316,#ea580c)",color:"#fff",border:"none",borderRadius:20,padding:"7px 14px",fontSize:11,cursor:loadingAI?"default":"pointer",fontWeight:700,boxShadow:loadingAI?"none":"0 0 16px rgba(249,115,22,0.35)"}}>{loadingAI?"Analyserer…":"Oppdater"}</button>
+          </div>
+          {aiFeedback?<div style={{fontSize:13,color:"rgba(255,255,255,0.78)",whiteSpace:"pre-wrap",lineHeight:1.8}}>{aiFeedback}</div>:<div style={{fontSize:13,color:C.t3,fontStyle:"italic",lineHeight:1.7}}>Logg noen økter og sjekk inn formen – så gir AI deg personlig tilbakemelding.</div>}
+        </div>
+        {log.length>0&&<div style={{...card(false)}}>
+          <div style={{fontSize:10,color:C.t3,letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>Siste aktiviteter</div>
+          {log.slice(-5).reverse().map((e,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:i<4?`1px solid ${C.border}`:"none"}}><div style={{width:6,height:6,borderRadius:"50%",background:e.status==="Fullført"?C.ok:e.status==="Delvis"?C.warn:C.err,flexShrink:0}}/><span style={{fontSize:11,color:C.t3,minWidth:76}}>{e.date}</span><span style={{flex:1,fontSize:13}}>{e.type}{e.distance?` · ${e.distance}`:""}</span><SBadge status={e.status}/></div>)}
+        </div>}
+      </div>;
+    }
+
+    // ── PLAN ──
+    function PlanView({plan,onSave}){
+      const[loc,setLoc]=useState(()=>plan.length===7?plan:DAYS.map((d,i)=>plan[i]||{day:d,type:"Hvile",distance:"",note:""}));
+      const[saved,setSaved]=useState(false);
+      const upd=(i,k,v)=>setLoc(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
+      return<div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{fontWeight:800,fontSize:20,letterSpacing:-0.5,marginBottom:2}}>Ukeplan</div>
+        {loc.map((d,i)=>{const tc=TYPE_COLORS[d.type]||C.t3;return<div key={i} style={{...card(false),borderLeft:`3px solid ${tc}`,padding:"14px 16px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div style={{fontSize:12,fontWeight:700}}>{d.day}</div><div style={{fontSize:10,padding:"3px 8px",borderRadius:8,background:`${tc}20`,color:tc}}>{d.type}</div></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:d.type!=="Hvile"?8:0}}><Sel value={d.type} options={TYPES} onChange={v=>upd(i,"type",v)}/><Inp value={d.distance} onChange={v=>upd(i,"distance",v)} placeholder="Distanse/tid"/></div>
+          {d.type!=="Hvile"&&<Inp value={d.note} onChange={v=>upd(i,"note",v)} placeholder="Notat"/>}
+        </div>;})}
+        <Btn onClick={()=>{onSave(loc);setSaved(true);setTimeout(()=>setSaved(false),2000);}} label="Lagre ukeplan" saved={saved}/>
+      </div>;
+    }
+
+    // ── LOG ──
+    function LogView({plan,onSave,onShare}){
+      const init={date:today(),type:"Rolig",distance:"",duration:"",pace:"",status:"Fullført",note:"",share:false};
+      const[f,setF]=useState(init);const[saved,setSaved]=useState(false);
+      const set=(k,v)=>setF(x=>({...x,[k]:v}));
+      const todayDay=DAYS[new Date().getDay()===0?6:new Date().getDay()-1];
+      const tp=plan.find(d=>d.day===todayDay);
+      const submit=async()=>{onSave({...f});if(f.share)await onShare({kind:"økt",type:f.type,status:f.status,distance:f.distance,pace:f.pace,note:f.note,date:f.date});setSaved(true);setTimeout(()=>setSaved(false),2500);setF({...init});};
+      return<div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{fontWeight:800,fontSize:20,letterSpacing:-0.5}}>Logg økt</div>
+        {tp&&tp.type!=="Hvile"&&<div style={{background:"linear-gradient(135deg,rgba(129,140,248,0.08),rgba(99,102,241,0.04))",border:"1px solid rgba(129,140,248,0.2)",borderRadius:14,padding:"12px 16px",display:"flex",gap:10,alignItems:"center"}}><span style={{fontSize:18}}>📋</span><div><div style={{fontSize:10,color:C.pur,letterSpacing:1,textTransform:"uppercase",marginBottom:1}}>Plan i dag</div><div style={{fontSize:12}}>{tp.type}{tp.distance?` · ${tp.distance}`:""}{tp.note?` — ${tp.note}`:""}</div></div></div>}
+        <div style={{...card(false)}}>
+          <Lbl text="Dato"><input type="date" value={f.date} onChange={e=>set("date",e.target.value)} style={iS}/></Lbl>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,margin:"12px 0"}}><Lbl text="Type økt"><Sel value={f.type} options={TYPES} onChange={v=>set("type",v)}/></Lbl><Lbl text="Status"><Sel value={f.status} options={STATUSES} onChange={v=>set("status",v)}/></Lbl></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}><Lbl text="Distanse"><Inp value={f.distance} onChange={v=>set("distance",v)} placeholder="8 km"/></Lbl><Lbl text="Tid"><Inp value={f.duration} onChange={v=>set("duration",v)} placeholder="45 min"/></Lbl><Lbl text="Pace"><Inp value={f.pace} onChange={v=>set("pace",v)} placeholder="5:15/km"/></Lbl></div>
+          <Lbl text="Notat"><textarea value={f.note} onChange={e=>set("note",e.target.value)} placeholder="Hvordan gikk det?" rows={2} style={{...iS,resize:"none",lineHeight:1.6}}/></Lbl>
+          <div style={{marginTop:12}}><ShareToggle on={f.share} onToggle={()=>set("share",!f.share)} label="Del økt med laget"/><Btn onClick={submit} label="Logg økt" saved={saved}/></div>
+        </div>
+      </div>;
+    }
+
+    // ── FORM ──
+    function FormView({forms,onSave,onShare}){
+      const[s,setS]=useState({sleep:3,legs:3,motivation:3,energy:3});
+      const[share,setShare]=useState(false);const[saved,setSaved]=useState(false);
+      const items=[{k:"sleep",e:"😴",t:"Søvn"},{k:"legs",e:"🦵",t:"Bein"},{k:"motivation",e:"🔥",t:"Motivasjon"},{k:"energy",e:"⚡",t:"Overskudd"}];
+      const avg=((s.sleep+s.legs+s.motivation+s.energy)/4).toFixed(1);
+      const avgColor=parseFloat(avg)>=4?C.ok:parseFloat(avg)>=3?C.accent:C.err;
+      const todayEntry=forms.find(f=>f.date===today());
+      const last14=forms.slice(-14);
+      const submit=async()=>{onSave({date:today(),...s});if(share)await onShare({kind:"formsjekk",avg,...s,date:today()});setSaved(true);setTimeout(()=>setSaved(false),2500);};
+      return<div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{fontWeight:800,fontSize:20,letterSpacing:-0.5}}>Formsjekk</div>
+        {todayEntry&&<div style={{background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.2)",borderRadius:14,padding:"10px 14px",fontSize:12,color:C.ok}}>✓ Du har sjekket inn i dag</div>}
+        <div style={{...card(false)}}>
+          {items.map(({k,e,t})=><div key={k} style={{marginBottom:20}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{fontSize:13}}>{e} {t}</span><span style={{fontSize:13,fontWeight:700,color:C.accent}}>{s[k]}<span style={{color:C.t3,fontWeight:400}}>/5</span></span></div>
+            <input type="range" min={1} max={5} value={s[k]} onChange={ev=>setS(x=>({...x,[k]:parseInt(ev.target.value)}))}/>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.t3,marginTop:4}}><span>Dårlig</span><span>Toppform</span></div>
+          </div>)}
+          <div style={{background:`linear-gradient(135deg,${avgColor}12,${avgColor}06)`,border:`1px solid ${avgColor}25`,borderRadius:14,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <span style={{fontSize:12,color:C.t2}}>Samlet formscore</span>
+            <span style={{fontSize:26,fontWeight:800,color:avgColor}}>{avg}<span style={{fontSize:13,color:C.t3,fontWeight:400}}>/5</span></span>
+          </div>
+          <ShareToggle on={share} onToggle={()=>setShare(!share)} label="Del formsjekk med laget"/>
+          <Btn onClick={submit} label="Lagre formsjekk" saved={saved}/>
+        </div>
+        {last14.length>0&&<div style={{...card(false)}}>
+          <div style={{fontSize:10,color:C.t3,letterSpacing:2,textTransform:"uppercase",marginBottom:16}}>Formhistorikk</div>
+          <div style={{display:"flex",alignItems:"flex-end",gap:3,height:72}}>
+            {last14.map((fm,i)=>{const a=(fm.sleep+fm.legs+fm.motivation+fm.energy)/4,h=Math.round((a/5)*62)+4,cl=a>=4?C.ok:a>=3?C.accent:C.err;return<div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><div style={{width:"100%",background:cl,height:h,borderRadius:"3px 3px 2px 2px",boxShadow:`0 0 6px ${cl}50`}}/><div style={{fontSize:7,color:C.t3,transform:"rotate(-40deg)",transformOrigin:"top",marginTop:7,whiteSpace:"nowrap"}}>{fm.date.slice(5)}</div></div>;})}
+          </div>
+        </div>}
+      </div>;
+    }
+
+    // ── TESTS ──
+    function TestsView({tests,onSave,onShare}){
+      const init={date:today(),type:TEST_TYPES[0],result:"",note:"",share:false};
+      const[f,setF]=useState(init);const[saved,setSaved]=useState(false);
+      const set=(k,v)=>setF(x=>({...x,[k]:v}));
+      const submit=async()=>{if(!f.result)return;onSave({...f});if(f.share)await onShare({kind:"test",type:f.type,result:f.result,note:f.note,date:f.date});setSaved(true);setTimeout(()=>setSaved(false),2500);setF({...init});};
+      return<div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{fontWeight:800,fontSize:20,letterSpacing:-0.5}}>Nøkkeltester</div>
+        <div style={{...card(false)}}>
+          <div style={{fontSize:10,color:C.warn,letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>🏆 Registrer test</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}><Lbl text="Type"><Sel value={f.type} options={TEST_TYPES} onChange={v=>set("type",v)}/></Lbl><Lbl text="Dato"><input type="date" value={f.date} onChange={e=>set("date",e.target.value)} style={iS}/></Lbl></div>
+          <Lbl text="Resultat"><Inp value={f.result} onChange={v=>set("result",v)} placeholder="f.eks. 4×3 min @ 4:15/km"/></Lbl>
+          <div style={{margin:"12px 0"}}><Lbl text="Notat"><textarea value={f.note} onChange={e=>set("note",e.target.value)} placeholder="Følelse, vær, observasjoner…" rows={2} style={{...iS,resize:"none"}}/></Lbl></div>
+          <ShareToggle on={f.share} onToggle={()=>set("share",!f.share)} label="Del test med laget"/>
+          <Btn onClick={submit} label="Lagre test" saved={saved}/>
+        </div>
+        {tests.length>0&&<div style={{...card(false)}}>
+          <div style={{fontSize:10,color:C.t3,letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>Testhistorikk</div>
+          {tests.slice().reverse().map((t,i)=><div key={i} style={{padding:"12px 0",borderBottom:i<tests.length-1?`1px solid ${C.border}`:"none"}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{color:C.warn,fontWeight:700,fontSize:13}}>{t.type}</span><span style={{fontSize:10,color:C.t3,background:"rgba(255,255,255,0.04)",padding:"3px 8px",borderRadius:8}}>{t.date}</span></div>
+            <div style={{fontSize:14,fontWeight:500}}>{t.result}</div>
+            {t.note&&<div style={{fontSize:11,color:C.t3,marginTop:4}}>{t.note}</div>}
+          </div>)}
+        </div>}
+      </div>;
+    }
+
+    // ── TEAM ──
+    function TeamView({profiles,feed,currentUser}){
+      const members=Object.entries(profiles).sort(([a],[b])=>a.localeCompare(b));
+      const mfeed=name=>feed.filter(f=>f.username===name);
+      return<div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{fontWeight:800,fontSize:20,letterSpacing:-0.5}}>Laget</div>
+        {members.length===0&&<div style={{...card(false),textAlign:"center",padding:40}}><div style={{fontSize:40,marginBottom:12}}>👥</div><div style={{color:C.t2,fontSize:14}}>Ingen andre på laget ennå</div><div style={{color:C.t3,fontSize:12,marginTop:4}}>Del lenken med lagkameratene!</div></div>}
+        {members.map(([name,prof])=>{
+          const lp=mfeed(name)[0],isMe=name===currentUser,col=avatarColor(name);
+          return<div key={name} style={{...card(false),border:`1px solid ${isMe?C.borderAccent:C.border}`}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:lp?12:0}}>
+              <div style={{width:44,height:44,borderRadius:12,background:`linear-gradient(135deg,${col},${col}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:14,flexShrink:0,boxShadow:`0 0 12px ${col}40`}}>{initials(name)}</div>
+              <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14}}>{name}{isMe&&<span style={{fontSize:10,color:C.accent,marginLeft:8,background:C.accentBg,padding:"2px 6px",borderRadius:6}}>deg</span>}</div><div style={{fontSize:11,color:col,marginTop:2}}>{prof.etappe}{prof.dist?` · ${distLabel(prof.dist)}`:""} · {prof.goal}</div></div>
+            </div>
+            {lp&&<div style={{background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"10px 12px",borderLeft:`2px solid ${col}60`}}><div style={{fontSize:9,color:C.t3,letterSpacing:1.5,textTransform:"uppercase",marginBottom:5}}>Siste deling</div><FeedItem item={lp} compact={true}/></div>}
+            {!lp&&<div style={{fontSize:11,color:C.t3,fontStyle:"italic",marginTop:8}}>Ingen delte aktiviteter ennå</div>}
+          </div>;
+        })}
+        {feed.length>0&&<div style={{...card(false)}}>
+          <div style={{fontSize:10,color:C.t3,letterSpacing:2,textTransform:"uppercase",marginBottom:16}}>📣 Teamfeed</div>
+          {feed.slice(0,20).map((item,i)=>{
+            const col=avatarColor(item.username);
+            return<div key={i} style={{display:"flex",gap:12,padding:"10px 0",borderBottom:i<Math.min(feed.length,20)-1?`1px solid ${C.border}`:"none"}}>
+              <div style={{width:32,height:32,borderRadius:9,background:`linear-gradient(135deg,${col},${col}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:11,flexShrink:0}}>{initials(item.username)}</div>
+              <div style={{flex:1}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,fontWeight:700}}>{item.username}</span><span style={{fontSize:10,color:C.t3}}>{item.date}</span></div><FeedItem item={item} compact={false}/></div>
+            </div>;
+          })}
+        </div>}
+        <div style={{background:"rgba(255,255,255,0.02)",border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 14px",fontSize:11,color:C.t3,textAlign:"center",lineHeight:1.7}}>🔒 Treningsdata er private. Kun det du aktivt velger å dele vises her.</div>
+      </div>;
+    }
+
+    function FeedItem({item,compact}){
+      if(item.kind==="økt")return<div style={{fontSize:12,color:"rgba(255,255,255,0.7)"}}><span style={{color:C.accent,fontWeight:600}}>{item.type}</span>{item.distance&&<span style={{color:C.t2}}> · {item.distance}</span>}{item.pace&&<span style={{color:C.t2}}> · {item.pace}</span>}<SBadge status={item.status}/>{!compact&&item.note&&<div style={{fontSize:11,color:C.t3,marginTop:4}}>{item.note}</div>}</div>;
+      if(item.kind==="formsjekk"){const fc=parseFloat(item.avg)>=4?C.ok:parseFloat(item.avg)>=3?C.accent:C.err;return<div style={{fontSize:12,color:"rgba(255,255,255,0.7)"}}>💪 Formsjekk – <span style={{color:fc,fontWeight:700}}>{item.avg}/5</span>{!compact&&<span style={{color:C.t3,fontSize:11}}> · søvn {item.sleep} · bein {item.legs} · mot {item.motivation} · ov {item.energy}</span>}</div>;}
+      if(item.kind==="test")return<div style={{fontSize:12,color:"rgba(255,255,255,0.7)"}}>🏆 <span style={{color:C.warn,fontWeight:600}}>{item.type}</span> – {item.result}{!compact&&item.note&&<div style={{fontSize:11,color:C.t3,marginTop:4}}>{item.note}</div>}</div>;
+      return null;
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
