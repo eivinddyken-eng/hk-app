@@ -212,7 +212,7 @@
           <div style={{width:"100%",maxWidth:400}}>
             {step===1&&<div style={{display:"flex",flexDirection:"column",gap:20}}>
               <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,color:C.t1,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Hva heter du?</div><div style={{fontSize:13,color:C.t2}}>Vi bruker navnet ditt i laget</div></div>
-              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Skriv inn navn…" autoFocus onKeyDown={e=>e.key==="Enter"&&name.trim()&&setStep(2)} style={{...iS,fontSize:18,padding:"14px 16px",borderRadius:14,textAlign:"center",background:"rgba(255,255,255,0.07)",border:`1px solid ${name.trim()?C.accent:"rgba(255,255,255,0.1)"}`,transition:"border-color 0.2s"}}/>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Skriv inn navn…" autoFocus onKeyDown={e=>e.key==="Enter"&&name.trim()&&setStep(2)}               style={{...iS,fontSize:18,padding:"14px 16px",borderRadius:14,textAlign:"center",background:"rgba(255,255,255,0.07)",border:`1px solid ${name.trim()?C.accent:"rgba(255,255,255,0.1)"}`,transition:"border-color 0.2s",color:"#fff"}}/>
               <Btn onClick={()=>setStep(2)} label="Neste →" disabled={!name.trim()}/>
             </div>}
             {step===2&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
