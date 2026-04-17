@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" content="#07070f" />
+  <meta name="theme-color" content="#1a1a1a" />
   <title>Løpetrener – Holmenkollstafetten</title>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -13,13 +13,13 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body, #root { min-height: 100%; }
-    body { background: #07070f; color: #fff; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+    body { background: #1a1a1a; color: #fff; font-family: Arial, "Arial Black", sans-serif; }
     input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:4px;background:rgba(255,255,255,0.1);outline:none;width:100%;}
-    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#f97316,#ea580c);cursor:pointer;box-shadow:0 0 10px rgba(249,115,22,0.5);}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#646ED2,#008287);cursor:pointer;box-shadow:0 0 10px rgba(100,110,210,0.5);}
     input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.2); }
     ::-webkit-scrollbar { height: 3px; width: 3px; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
-    select option { background: #1a1a2e; }
+    select option { background: #2a2a2a; }
   </style>
 </head>
 <body>
@@ -27,21 +27,17 @@
   <script type="text/babel" data-presets="react">
     const { useState, useEffect } = React;
 
-    // ── STORAGE ──
-    // Personal data: localStorage (private, per device)
     const pg = async (k) => { try { const v = localStorage.getItem(k); return v ? { value: v } : null; } catch { return null; } };
     const ps = async (k, v) => { try { const s = typeof v === "string" ? v : JSON.stringify(v); localStorage.setItem(k, s); return { value: s }; } catch { return null; } };
-    // Shared data: Vercel KV via serverless API
     const sg = async (k) => { try { const r = await fetch(`/api/storage?key=${encodeURIComponent(k)}`); if (!r.ok) return null; const d = await r.json(); return d.value != null ? { value: typeof d.value === "string" ? d.value : JSON.stringify(d.value) } : null; } catch { return null; } };
     const ss = async (k, v) => { try { await fetch("/api/storage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: k, value: typeof v === "string" ? v : JSON.stringify(v) }) }); return { value: v }; } catch { return null; } };
 
-    // ── CONSTANTS ──
     const TYPES    = ["Rolig","Terskel","Bakkeintervall","Intervall","Langtur","Konkurranse","Hvile"];
     const STATUSES = ["Fullført","Delvis","Hoppet over"];
     const DAYS     = ["Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag","Søndag"];
     const TEST_TYPES    = ["Bakkeintervall","Terskeløkt","Konkurransespesifikk økt","Tidskjøring 3km","Tidskjøring 5km"];
-    const AVATAR_COLORS = ["#f97316","#818cf8","#22c55e","#ec4899","#06b6d4","#f59e0b","#8b5cf6"];
-    const TYPE_COLORS   = { Rolig:"#22c55e",Terskel:"#f97316",Bakkeintervall:"#ef4444",Intervall:"#f59e0b",Langtur:"#818cf8",Konkurranse:"#ec4899",Hvile:"#334155" };
+    const AVATAR_COLORS = ["#646ED2","#008287","#FF5023","#F0BEBE","#00D2E6","#AAFF6E","#B4B9C3"];
+    const TYPE_COLORS   = { Rolig:"#008287",Terskel:"#646ED2",Bakkeintervall:"#FF5023",Intervall:"#00D2E6",Langtur:"#F0BEBE",Konkurranse:"#AAFF6E",Hvile:"#4a4a4a" };
 
     const ETAPPER = [
       { nr:1,  dist:1100, profil:"Kupert",         start:"Knud Knudsens plass",  veksling:"Louises gate" },
@@ -60,8 +56,9 @@
       { nr:14, dist:710,  profil:"Flat",            start:"Camilla Collets vei",  veksling:"Bislettgata" },
       { nr:15, dist:535,  profil:"Flat",            start:"Bislettgata",           veksling:"Mål (Bislett)" },
     ];
+
     const PROFIL_ICON  = { "Flat":"→","Lett stigning":"↗","Kupert":"〜","Bratt stigning":"↑","Nedover":"↓" };
-    const PROFIL_COLOR = { "Flat":"#22c55e","Lett stigning":"#86efac","Kupert":"#f97316","Bratt stigning":"#ef4444","Nedover":"#818cf8" };
+    const PROFIL_COLOR = { "Flat":"#008287","Lett stigning":"#00D2E6","Kupert":"#646ED2","Bratt stigning":"#FF5023","Nedover":"#F0BEBE" };
     const WAYPOINTS = [
       {x:338,y:210},{x:320,y:196},{x:302,y:181},{x:262,y:161},{x:220,y:136},
       {x:154,y:107},{x:88,y:80},{x:22,y:22},{x:44,y:56},{x:64,y:90},
@@ -90,26 +87,25 @@
     function distLabel(d) { return d<1000?`${d} m`:`${(d/1000).toFixed(2).replace(".",",")} km`; }
 
     const C = {
-      bg:"#07070f",surface:"#0c0c18",card:"#10101e",
-      border:"rgba(255,255,255,0.07)",borderAccent:"rgba(249,115,22,0.28)",
-      accent:"#f97316",accentBg:"rgba(249,115,22,0.1)",
-      ok:"#22c55e",warn:"#eab308",err:"#ef4444",pur:"#818cf8",
-      t1:"#ffffff",t2:"rgba(255,255,255,0.55)",t3:"rgba(255,255,255,0.28)",
+      bg:"#1a1a1a", surface:"#232323", card:"#2a2a2a",
+      border:"rgba(255,255,255,0.08)", borderAccent:"rgba(100,110,210,0.4)",
+      accent:"#646ED2", accentBg:"rgba(100,110,210,0.12)",
+      ok:"#008287", warn:"#F0BEBE", err:"#FF5023", pur:"#646ED2",
+      t1:"#ffffff", t2:"rgba(255,255,255,0.55)", t3:"rgba(255,255,255,0.28)",
     };
     const card = (accent) => ({
-      background: accent?"linear-gradient(135deg,rgba(249,115,22,0.09),rgba(239,68,68,0.04))":"linear-gradient(145deg,#12121f,#0d0d1a)",
-      border:`1px solid ${accent?C.borderAccent:C.border}`,borderRadius:20,padding:20,
-      boxShadow:accent?"0 0 32px rgba(249,115,22,0.07)":"none",
+      background: accent ? "linear-gradient(135deg,rgba(100,110,210,0.09),rgba(255,80,35,0.04))" : "linear-gradient(145deg,#242424,#1e1e1e)",
+      border: `1px solid ${accent ? C.borderAccent : C.border}`, borderRadius: 20, padding: 20,
+      boxShadow: accent ? "0 0 32px rgba(100,110,210,0.07)" : "none",
     });
-    const iS = { width:"100%",background:"rgba(255,255,255,0.04)",color:"#fff",border:"1px solid rgba(255,255,255,0.1)",borderRadius:10,padding:"9px 13px",fontSize:13,outline:"none",fontFamily:"inherit",boxSizing:"border-box" };
+    const iS = { width:"100%", background:"rgba(255,255,255,0.05)", color:"#fff", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"9px 13px", fontSize:13, outline:"none", fontFamily:"inherit", boxSizing:"border-box" };
 
-    // ── SHARED UI ──
     function Lbl({text,children}){ return <div style={{marginBottom:4}}><div style={{fontSize:10,color:C.t3,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>{text}</div>{children}</div>; }
     function Inp({value,onChange,placeholder}){ return <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={iS}/>; }
     function Sel({value,options,onChange}){ return <select value={value} onChange={e=>onChange(e.target.value)} style={{...iS,cursor:"pointer"}}>{options.map(o=><option key={o}>{o}</option>)}</select>; }
     function Btn({onClick,label,saved,disabled}){
-      let bg="linear-gradient(135deg,#f97316,#ea580c)",sh="0 0 20px rgba(249,115,22,0.32)";
-      if(saved){bg="linear-gradient(135deg,#166534,#14532d)";sh="0 0 20px rgba(34,197,94,0.25)";}
+      let bg="linear-gradient(135deg,#646ED2,#008287)",sh="0 0 20px rgba(100,110,210,0.32)";
+      if(saved){bg="linear-gradient(135deg,#008287,#006a6e)";sh="0 0 20px rgba(0,130,135,0.25)";}
       if(disabled){bg="rgba(255,255,255,0.06)";sh="none";}
       return <button onClick={onClick} disabled={disabled} style={{width:"100%",padding:13,borderRadius:12,border:"none",cursor:disabled?"default":"pointer",background:bg,color:disabled?C.t3:"#fff",fontWeight:700,fontSize:14,boxShadow:sh,transition:"all 0.2s",marginTop:4}}>{saved?"✓ Lagret!":label}</button>;
     }
@@ -118,20 +114,19 @@
       return <div style={{background:"rgba(255,255,255,0.07)",borderRadius:6,height:5,marginTop:10}}><div style={{width:`${pct}%`,background:`linear-gradient(90deg,${color},${color}cc)`,height:5,borderRadius:6,boxShadow:`0 0 8px ${color}60`,transition:"width 0.5s ease"}}/></div>;
     }
     function SBadge({status}){
-      const m={"Fullført":[C.ok,"rgba(34,197,94,0.1)"],"Delvis":[C.warn,"rgba(234,179,8,0.1)"],"Hoppet over":[C.err,"rgba(239,68,68,0.1)"]};
+      const m={"Fullført":[C.ok,"rgba(0,130,135,0.15)"],"Delvis":[C.warn,"rgba(240,190,190,0.15)"],"Hoppet over":[C.err,"rgba(255,80,35,0.15)"]};
       const[col,bg]=m[status]||[C.t2,"rgba(255,255,255,0.05)"];
       return <span style={{background:bg,color:col,padding:"2px 8px",borderRadius:8,fontSize:10,fontWeight:700,marginLeft:8}}>{status}</span>;
     }
     function ShareToggle({on,onToggle,label}){
-      return <button onClick={onToggle} style={{display:"flex",alignItems:"center",gap:12,background:on?"rgba(249,115,22,0.07)":"rgba(255,255,255,0.02)",border:`1px solid ${on?"rgba(249,115,22,0.32)":"rgba(255,255,255,0.07)"}`,borderRadius:12,padding:"10px 14px",cursor:"pointer",width:"100%",marginBottom:12,transition:"all 0.2s"}}>
-        <div style={{width:38,height:22,borderRadius:11,background:on?"linear-gradient(135deg,#f97316,#ea580c)":"rgba(255,255,255,0.1)",position:"relative",transition:"background 0.2s",flexShrink:0,boxShadow:on?"0 0 10px rgba(249,115,22,0.4)":"none"}}>
+      return <button onClick={onToggle} style={{display:"flex",alignItems:"center",gap:12,background:on?"rgba(100,110,210,0.1)":"rgba(255,255,255,0.02)",border:`1px solid ${on?"rgba(100,110,210,0.4)":"rgba(255,255,255,0.07)"}`,borderRadius:12,padding:"10px 14px",cursor:"pointer",width:"100%",marginBottom:12,transition:"all 0.2s"}}>
+        <div style={{width:38,height:22,borderRadius:11,background:on?"linear-gradient(135deg,#646ED2,#008287)":"rgba(255,255,255,0.1)",position:"relative",transition:"background 0.2s",flexShrink:0,boxShadow:on?"0 0 10px rgba(100,110,210,0.4)":"none"}}>
           <div style={{position:"absolute",top:2,left:on?18:2,width:18,height:18,background:"#fff",borderRadius:"50%",transition:"left 0.2s"}}/>
         </div>
         <span style={{fontSize:12,color:on?C.accent:C.t3,fontWeight:on?600:400}}>{label}</span>
       </button>;
     }
 
-    // ── ELEVATION PROFILE ──
     function ElevationProfile({selectedNr}){
       const W=320,H=80,PAD={l:6,r:6,t:14,b:22};
       const totalDist=ETAPPER.reduce((s,e)=>s+e.dist,0);
@@ -162,7 +157,6 @@
       </svg>;
     }
 
-    // ── ROUTE MAP ──
     function EtappeMap({selectedNr}){
       const W=360,H=228;
       const profColor=selectedNr?(PROFIL_COLOR[ETAPPER[selectedNr-1].profil]||C.accent):C.accent;
@@ -175,8 +169,8 @@
           const isSel=selectedNr&&(i===selectedNr-1||i===selectedNr);
           return <circle key={i} cx={wp.x} cy={wp.y} r={isSel?4:2} fill={isSel?profColor:"rgba(255,255,255,0.18)"}/>;
         })}
-        <circle cx={338} cy={210} r={9} fill="rgba(249,115,22,0.15)" stroke="#f97316" strokeWidth={1.5}/>
-        <circle cx={338} cy={210} r={4} fill="#f97316"/>
+        <circle cx={338} cy={210} r={9} fill="rgba(100,110,210,0.2)" stroke="#646ED2" strokeWidth={1.5}/>
+        <circle cx={338} cy={210} r={4} fill="#646ED2"/>
         <circle cx={22} cy={22} r={5} fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.45)" strokeWidth={1.5}/>
         {selectedNr&&(()=>{
           const i=selectedNr-1,mp={x:(WAYPOINTS[i].x+WAYPOINTS[i+1].x)/2,y:(WAYPOINTS[i].y+WAYPOINTS[i+1].y)/2};
@@ -184,13 +178,12 @@
         })()}
         <text x={328} y={224} textAnchor="end" fontSize={8.5} fill="rgba(255,255,255,0.35)">Start/Mål</text>
         <text x={30} y={36} textAnchor="start" fontSize={8.5} fill="rgba(255,255,255,0.35)">Besserud ▲</text>
-        {[["#ef4444","↑ Opp"],["#818cf8","↓ Ned"],["#f97316","〜 Kupert"],["#22c55e","→ Flat"]].map(([col,lbl],i)=>(
+        {[["#FF5023","↑ Opp"],["#F0BEBE","↓ Ned"],["#646ED2","〜 Kupert"],["#008287","→ Flat"]].map(([col,lbl],i)=>(
           <g key={i}><rect x={8+i*80} y={H-14} width={10} height={4} rx={2} fill={col}/><text x={22+i*80} y={H-10} fontSize={7} fill="rgba(255,255,255,0.35)">{lbl}</text></g>
         ))}
       </svg>;
     }
 
-    // ── ONBOARDING ──
     function Onboarding({onSubmit,existing}){
       const[step,setStep]=useState(1);
       const[name,setName]=useState(existing?.name||"");
@@ -204,31 +197,33 @@
       const derivedPace=goalMode==="time"&&finishTime.includes(":")&&etappe?calcPace(etappe.dist,finishTime):null;
       const goalString=goalMode==="pace"?`${pace}/km${derivedFinish?` · ${derivedFinish}`:""}`:` ${finishTime}${derivedPace?` · ${derivedPace}/km`:""}`;
       const canDone=goalMode==="pace"?pace.includes(":"):finishTime.includes(":");
+
       return (
-        <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",padding:"24px 20px 40px",overflowY:"auto"}}>
+        <div style={{minHeight:"100vh",background:`linear-gradient(to bottom,rgba(10,10,10,0.85) 0%,rgba(10,10,10,0.95) 100%), url('/runners.jpg.jpg') center/cover no-repeat`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",padding:"24px 20px 40px",overflowY:"auto"}}>
           <div style={{marginBottom:24,textAlign:"center"}}>
-            <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#f97316,#ef4444)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,margin:"0 auto 12px",boxShadow:"0 0 32px rgba(249,115,22,0.45)"}}>🏃</div>
-            <div style={{fontWeight:800,fontSize:20,color:C.t1,letterSpacing:-0.5}}>Holmenkollstafetten</div>
-            <div style={{color:C.t2,fontSize:12,marginTop:3}}>9. mai 2026 · Oslo</div>
+            <div style={{fontSize:28,fontWeight:800,color:"#ffffff",letterSpacing:0.5,fontFamily:"Arial Black, Arial, sans-serif",marginBottom:8}}>dentsu</div>
+            <div style={{width:2,height:32,background:"linear-gradient(180deg,#646ED2,#008287)",margin:"0 auto 16px",borderRadius:2}}/>
+            <div style={{fontWeight:800,fontSize:20,color:C.t1,letterSpacing:2,textTransform:"uppercase",fontFamily:"Arial Black, Arial"}}>Holmenkollstafetten</div>
+            <div style={{color:C.t2,fontSize:12,marginTop:3,letterSpacing:1}}>9. MAI 2026 · OSLO</div>
           </div>
           <div style={{display:"flex",gap:8,marginBottom:24}}>
-            {[1,2,3].map(s=><div key={s} style={{width:s===step?28:8,height:8,borderRadius:4,background:s===step?C.accent:s<step?"rgba(249,115,22,0.4)":"rgba(255,255,255,0.1)",transition:"all 0.3s"}}/>)}
+            {[1,2,3].map(s=><div key={s} style={{width:s===step?28:8,height:8,borderRadius:4,background:s===step?C.accent:s<step?"rgba(100,110,210,0.4)":"rgba(255,255,255,0.1)",transition:"all 0.3s"}}/>)}
           </div>
           <div style={{width:"100%",maxWidth:400}}>
             {step===1&&<div style={{display:"flex",flexDirection:"column",gap:20}}>
-              <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,color:C.t1,marginBottom:6}}>Hva heter du?</div><div style={{fontSize:13,color:C.t2}}>Vi bruker navnet ditt i laget</div></div>
-              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Skriv inn navn…" autoFocus onKeyDown={e=>e.key==="Enter"&&name.trim()&&setStep(2)} style={{...iS,fontSize:18,padding:"14px 16px",borderRadius:14,textAlign:"center",background:"rgba(255,255,255,0.05)",border:`1px solid ${name.trim()?C.accent:"rgba(255,255,255,0.1)"}`,transition:"border-color 0.2s"}}/>
+              <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,color:C.t1,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Hva heter du?</div><div style={{fontSize:13,color:C.t2}}>Vi bruker navnet ditt i laget</div></div>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Skriv inn navn…" autoFocus onKeyDown={e=>e.key==="Enter"&&name.trim()&&setStep(2)} style={{...iS,fontSize:18,padding:"14px 16px",borderRadius:14,textAlign:"center",background:"rgba(255,255,255,0.07)",border:`1px solid ${name.trim()?C.accent:"rgba(255,255,255,0.1)"}`,transition:"border-color 0.2s"}}/>
               <Btn onClick={()=>setStep(2)} label="Neste →" disabled={!name.trim()}/>
             </div>}
             {step===2&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-              <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,color:C.t1,marginBottom:4}}>Hvilken etappe løper du?</div><div style={{fontSize:13,color:C.t2}}>Se løypen og trykk på etappenummeret ditt</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,color:C.t1,marginBottom:4,textTransform:"uppercase",letterSpacing:1}}>Hvilken etappe?</div><div style={{fontSize:13,color:C.t2}}>Se løypen og trykk på nummeret ditt</div></div>
               <EtappeMap selectedNr={etappeNr}/>
               <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
                 {ETAPPER.map(e=>{const pc=PROFIL_COLOR[e.profil],sel=etappeNr===e.nr;return<button key={e.nr} onClick={()=>setEtappeNr(e.nr)} style={{padding:"11px 4px",borderRadius:12,border:`1px solid ${sel?pc:"rgba(255,255,255,0.08)"}`,background:sel?`${pc}22`:"rgba(255,255,255,0.03)",color:sel?pc:C.t2,fontWeight:sel?800:400,fontSize:15,cursor:"pointer",transition:"all 0.15s",boxShadow:sel?`0 0 12px ${pc}40`:"none"}}>{e.nr}</button>;})}
               </div>
-              {etappe&&<div style={{background:`linear-gradient(135deg,${profColor}12,rgba(16,16,30,0))`,border:`1px solid ${profColor}28`,borderRadius:16,padding:"14px 16px"}}>
+              {etappe&&<div style={{background:`linear-gradient(135deg,${profColor}12,rgba(26,26,26,0))`,border:`1px solid ${profColor}28`,borderRadius:16,padding:"14px 16px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-                  <div><div style={{fontWeight:800,fontSize:17,color:C.t1}}>Etappe {etappe.nr}</div><div style={{fontSize:11,color:C.t2,marginTop:2}}>{etappe.start}</div><div style={{fontSize:11,color:C.t3}}>→ {etappe.veksling}</div></div>
+                  <div><div style={{fontWeight:800,fontSize:17}}>{`Etappe ${etappe.nr}`}</div><div style={{fontSize:11,color:C.t2,marginTop:2}}>{etappe.start}</div><div style={{fontSize:11,color:C.t3}}>→ {etappe.veksling}</div></div>
                   <div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:800,color:profColor}}>{distLabel(etappe.dist)}</div><div style={{fontSize:11,color:profColor,marginTop:2}}>{PROFIL_ICON[etappe.profil]} {etappe.profil}</div></div>
                 </div>
                 <div style={{borderTop:`1px solid ${profColor}20`,paddingTop:8,marginTop:4}}>
@@ -242,7 +237,7 @@
               </div>
             </div>}
             {step===3&&etappe&&<div style={{display:"flex",flexDirection:"column",gap:20}}>
-              <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,color:C.t1,marginBottom:4}}>Hva er målet ditt?</div><div style={{fontSize:13,color:C.t2}}>Etappe {etappe.nr} · {distLabel(etappe.dist)} · {PROFIL_ICON[etappe.profil]} {etappe.profil}</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,color:C.t1,marginBottom:4,textTransform:"uppercase",letterSpacing:1}}>Hva er målet?</div><div style={{fontSize:13,color:C.t2}}>{`Etappe ${etappe.nr}`} · {distLabel(etappe.dist)} · {PROFIL_ICON[etappe.profil]} {etappe.profil}</div></div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,background:"rgba(255,255,255,0.04)",padding:4,borderRadius:14}}>
                 {[{m:"pace",l:"Tempo / km"},{m:"time",l:"Sluttid"}].map(({m,l})=><button key={m} onClick={()=>setGoalMode(m)} style={{padding:"10px",borderRadius:10,border:`1px solid ${goalMode===m?C.borderAccent:"transparent"}`,background:goalMode===m?C.accentBg:"transparent",color:goalMode===m?C.accent:C.t2,fontWeight:goalMode===m?700:400,fontSize:13,cursor:"pointer"}}>{l}</button>)}
               </div>
@@ -261,11 +256,11 @@
               </div>
             </div>}
           </div>
+          <div style={{marginTop:24,fontSize:10,color:"rgba(255,255,255,0.2)",letterSpacing:1}}>🔒 TRENINGSDATA ER PRIVATE SOM STANDARD</div>
         </div>
       );
     }
 
-    // ── APP ──
     function App(){
       const[screen,setScreen]=useState("loading");
       const[user,setUser]=useState(null);
@@ -343,24 +338,35 @@
           const data=await res.json();
           const txt=data.content?.[0]?.text||"Feil.";
           setMyAI(txt);await ps("my-ai",txt);
-        }catch{setMyAI("Feil ved henting av AI-tilbakemelding.");}
+        }catch{setMyAI("Feil ved henting.");}
         setLoadingAI(false);
       }
 
-      if(screen==="loading")return<div style={{height:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}><div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#f97316,#ef4444)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,boxShadow:"0 0 30px rgba(249,115,22,0.4)"}}>🏃</div><div style={{color:C.t3,fontSize:13,letterSpacing:1}}>LASTER…</div></div>;
+      if(screen==="loading")return<div style={{height:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}><div style={{fontSize:24,fontWeight:800,color:"#fff",letterSpacing:0.5,fontFamily:"Arial Black"}}>dentsu</div><div style={{color:C.t3,fontSize:11,letterSpacing:2,textTransform:"uppercase"}}>LASTER…</div></div>;
       if(screen==="onboarding")return<Onboarding onSubmit={onboard}/>;
       if(screen==="editprofile")return<Onboarding onSubmit={updateProfile} existing={user}/>;
 
       const tabs=[{id:"dashboard",icon:"📊",label:"Oversikt"},{id:"log",icon:"✏️",label:"Logg"},{id:"form",icon:"💪",label:"Form"},{id:"plan",icon:"📅",label:"Plan"},{id:"tests",icon:"🏆",label:"Tester"},{id:"team",icon:"👥",label:"Laget"}];
 
-      return<div style={{minHeight:"100vh",background:C.bg,color:C.t1,fontFamily:"-apple-system,BlinkMacSystemFont,system-ui,sans-serif",paddingBottom:72}}>
-        <div style={{background:"rgba(10,10,22,0.97)",borderBottom:`1px solid ${C.border}`,padding:"12px 20px",position:"sticky",top:0,zIndex:10,backdropFilter:"blur(20px)"}}>
+      return<div style={{minHeight:"100vh",background:C.bg,color:C.t1,fontFamily:"Arial, Arial Black, sans-serif",paddingBottom:72}}>
+        <div style={{background:"rgba(20,20,20,0.97)",borderBottom:`1px solid ${C.border}`,padding:"12px 20px",position:"sticky",top:0,zIndex:10,backdropFilter:"blur(20px)"}}>
           <div style={{maxWidth:640,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <div style={{width:34,height:34,borderRadius:10,background:"linear-gradient(135deg,#f97316,#ef4444)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,boxShadow:"0 0 14px rgba(249,115,22,0.45)"}}>🏃</div>
-              <div><div style={{fontWeight:700,fontSize:14,letterSpacing:-0.3}}>{user.name}</div><div style={{fontSize:11,color:C.accent}}>{user.etappe}{user.dist?` · ${distLabel(user.dist)}`:""} · {user.goal}</div></div>
+              <div style={{width:34,height:34,borderRadius:9,background:"#1a1a1a",border:"1px solid rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M13.49 5.48c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm-3.6 13.9l1-4.4 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1l-5.2 2.2v4.7h2v-3.4l1.8-.7-1.6 8.1-4.9-1-.4 2 7 1.4z"/></svg>
+              </div>
+              <div>
+                <div style={{fontWeight:700,fontSize:14,letterSpacing:0.5,textTransform:"uppercase",fontFamily:"Arial Black, Arial"}}>{user.name}</div>
+                <div style={{fontSize:11,color:C.accent}}>{user.etappe}{user.dist?` · ${distLabel(user.dist)}`:""} · {user.goal}</div>
+              </div>
             </div>
-            <button onClick={()=>setScreen("editprofile")} style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${C.border}`,borderRadius:10,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16}}>⚙️</button>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2}}>
+                <div style={{fontSize:17,fontWeight:800,color:"#ffffff",letterSpacing:0.5,fontFamily:"Arial Black, Arial, sans-serif",lineHeight:1,textTransform:"lowercase"}}>dentsu</div>
+                <div style={{fontSize:8,color:C.t3,letterSpacing:2,textTransform:"uppercase",fontFamily:"Arial"}}>INNOVATING TO IMPACT</div>
+              </div>
+              <button onClick={()=>setScreen("editprofile")} style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${C.border}`,borderRadius:10,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16}}>⚙️</button>
+            </div>
           </div>
         </div>
         <div style={{maxWidth:640,margin:"0 auto",padding:"20px 16px"}}>
@@ -371,7 +377,7 @@
           {view==="tests"&&<TestsView tests={tests} onSave={addTest} onShare={shareToFeed}/>}
           {view==="team"&&<TeamView profiles={profiles} feed={feed} currentUser={user.name}/>}
         </div>
-        <div style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,10,22,0.97)",borderTop:`1px solid ${C.border}`,backdropFilter:"blur(20px)",zIndex:10}}>
+        <div style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(20,20,20,0.97)",borderTop:`1px solid ${C.border}`,backdropFilter:"blur(20px)",zIndex:10}}>
           <div style={{maxWidth:640,margin:"0 auto",display:"flex"}}>
             {tabs.map(t=><button key={t.id} onClick={()=>{if(t.id==="team")refreshTeam();setView(t.id);}} style={{flex:1,padding:"10px 4px 12px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,borderTop:view===t.id?`2px solid ${C.accent}`:"2px solid transparent"}}>
               <span style={{fontSize:18,lineHeight:1}}>{t.icon}</span>
@@ -382,7 +388,6 @@
       </div>;
     }
 
-    // ── DASHBOARD ──
     function Dashboard({user,log,forms,tests,aiFeedback,loadingAI,onGetAI,plan}){
       const ago=n=>{const d=new Date();d.setDate(d.getDate()-n);return d;};
       const l7=log.filter(e=>new Date(e.date)>=ago(7));
@@ -395,24 +400,24 @@
       const todayPlan=plan.find(d=>d.day===todayDay);
       const userEtappeNr=user.etappe?parseInt(user.etappe.replace("Etappe ","")):null;
       return<div style={{display:"flex",flexDirection:"column",gap:14}}>
-        <div style={{background:"linear-gradient(135deg,rgba(249,115,22,0.14),rgba(239,68,68,0.07),rgba(16,16,30,0))",border:`1px solid rgba(249,115,22,0.3)`,borderRadius:20,padding:20,position:"relative",overflow:"hidden"}}>
-          <div style={{position:"absolute",top:-20,right:-20,width:100,height:100,borderRadius:"50%",background:"radial-gradient(circle,rgba(249,115,22,0.15),transparent 70%)"}}/>
-          <div style={{fontSize:10,color:C.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>🎯 Mål</div>
-          <div style={{fontWeight:800,fontSize:18,letterSpacing:-0.5}}>{user.etappe}{user.dist?` · ${distLabel(user.dist)}`:""}</div>
+        <div style={{background:"linear-gradient(135deg,rgba(100,110,210,0.14),rgba(255,80,35,0.07),rgba(26,26,26,0))",border:`1px solid rgba(100,110,210,0.3)`,borderRadius:20,padding:20,position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",top:-20,right:-20,width:100,height:100,borderRadius:"50%",background:"radial-gradient(circle,rgba(100,110,210,0.15),transparent 70%)"}}/>
+          <div style={{fontSize:10,color:C.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>🎯 MÅL</div>
+          <div style={{fontWeight:800,fontSize:18,letterSpacing:0.5,textTransform:"uppercase",fontFamily:"Arial Black, Arial"}}>{user.etappe}{user.dist?` · ${distLabel(user.dist)}`:""}</div>
           <div style={{color:C.t2,fontSize:13,marginTop:3}}>Holmenkollstafetten · <span style={{color:C.accent,fontWeight:700}}>{user.goal}</span></div>
         </div>
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:16}}>
-          <div style={{fontSize:10,color:C.t3,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>🗺 Din etappe på løypen</div>
+          <div style={{fontSize:10,color:C.t3,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>🗺 DIN ETAPPE PÅ LØYPEN</div>
           <EtappeMap selectedNr={userEtappeNr}/>
           <div style={{fontSize:10,color:C.t3,letterSpacing:1.5,textTransform:"uppercase",marginTop:14,marginBottom:2}}>Løypeprofil</div>
           <ElevationProfile selectedNr={userEtappeNr}/>
         </div>
-        {todayPlan&&todayPlan.type!=="Hvile"&&<div style={{background:"linear-gradient(135deg,rgba(129,140,248,0.09),rgba(99,102,241,0.04))",border:"1px solid rgba(129,140,248,0.22)",borderRadius:16,padding:"13px 16px",display:"flex",alignItems:"center",gap:12}}>
+        {todayPlan&&todayPlan.type!=="Hvile"&&<div style={{background:"linear-gradient(135deg,rgba(100,110,210,0.09),rgba(0,130,135,0.04))",border:"1px solid rgba(100,110,210,0.22)",borderRadius:16,padding:"13px 16px",display:"flex",alignItems:"center",gap:12}}>
           <span style={{fontSize:20}}>📅</span>
-          <div><div style={{fontSize:10,color:C.pur,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>Plan i dag</div><div style={{fontSize:13,fontWeight:500}}>{todayPlan.type}{todayPlan.distance?` · ${todayPlan.distance}`:""}{todayPlan.note?` — ${todayPlan.note}`:""}</div></div>
+          <div><div style={{fontSize:10,color:C.accent,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>Plan i dag</div><div style={{fontSize:13,fontWeight:500}}>{todayPlan.type}{todayPlan.distance?` · ${todayPlan.distance}`:""}{todayPlan.note?` — ${todayPlan.note}`:""}</div></div>
         </div>}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-          {[["Fullført",done,C.ok],["Delvis",part,C.warn],["Hoppet",skip,C.err]].map(([l,v,c])=><div key={l} style={{background:`linear-gradient(135deg,${c}18,${c}06)`,border:`1px solid ${c}28`,borderRadius:16,padding:"14px 10px",textAlign:"center"}}><div style={{fontSize:9,color:c,letterSpacing:1.5,textTransform:"uppercase",marginBottom:6}}>{l}</div><div style={{fontSize:30,fontWeight:800,color:c,letterSpacing:-1}}>{v}</div><div style={{fontSize:9,color:C.t3,marginTop:4}}>7 dager</div></div>)}
+          {[["FULLFØRT",done,C.ok],["DELVIS",part,C.warn],["HOPPET",skip,C.err]].map(([l,v,c])=><div key={l} style={{background:`linear-gradient(135deg,${c}18,${c}06)`,border:`1px solid ${c}28`,borderRadius:16,padding:"14px 10px",textAlign:"center"}}><div style={{fontSize:8,color:c,letterSpacing:1.5,textTransform:"uppercase",marginBottom:6}}>{l}</div><div style={{fontSize:30,fontWeight:800,color:c,letterSpacing:-1}}>{v}</div><div style={{fontSize:9,color:C.t3,marginTop:4}}>7 dager</div></div>)}
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:16}}>
@@ -420,18 +425,18 @@
             {avgF?<><div style={{fontSize:30,fontWeight:800,color:C.accent,letterSpacing:-1}}>{avgF}<span style={{fontSize:13,color:C.t3,fontWeight:400}}>/5</span></div><GlowBar value={parseFloat(avgF)} max={5} color={C.accent}/><div style={{fontSize:10,color:C.t3,marginTop:6}}>snitt 7 dager</div></>:<div style={{color:C.t3,fontSize:12,paddingTop:4}}>Ingen data ennå</div>}
           </div>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:16}}>
-            <div style={{fontSize:9,color:C.pur,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>Planfølging</div>
-            {pct!==null?<><div style={{fontSize:30,fontWeight:800,color:C.pur,letterSpacing:-1}}>{pct}<span style={{fontSize:13,color:C.t3,fontWeight:400}}>%</span></div><GlowBar value={pct} max={100} color={C.pur}/><div style={{fontSize:10,color:C.t3,marginTop:6}}>denne uken</div></>:<div style={{color:C.t3,fontSize:12,paddingTop:4}}>Legg inn ukeplan</div>}
+            <div style={{fontSize:9,color:C.ok,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>Planfølging</div>
+            {pct!==null?<><div style={{fontSize:30,fontWeight:800,color:C.ok,letterSpacing:-1}}>{pct}<span style={{fontSize:13,color:C.t3,fontWeight:400}}>%</span></div><GlowBar value={pct} max={100} color={C.ok}/><div style={{fontSize:10,color:C.t3,marginTop:6}}>denne uken</div></>:<div style={{color:C.t3,fontSize:12,paddingTop:4}}>Legg inn ukeplan</div>}
           </div>
         </div>
-        {lastTest&&<div style={{background:"linear-gradient(135deg,rgba(234,179,8,0.07),rgba(16,16,30,0))",border:"1px solid rgba(234,179,8,0.22)",borderRadius:20,padding:20}}>
-          <div style={{fontSize:10,color:C.warn,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>🏆 Siste nøkkeltest</div>
+        {lastTest&&<div style={{background:"linear-gradient(135deg,rgba(240,190,190,0.07),rgba(26,26,26,0))",border:"1px solid rgba(240,190,190,0.22)",borderRadius:20,padding:20}}>
+          <div style={{fontSize:10,color:C.warn,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>🏆 SISTE NØKKELTEST</div>
           <div style={{display:"flex",justifyContent:"space-between"}}><div><div style={{fontWeight:700,fontSize:15}}>{lastTest.type}</div><div style={{color:C.warn,fontSize:13,marginTop:3}}>{lastTest.result}</div>{lastTest.note&&<div style={{color:C.t3,fontSize:11,marginTop:4}}>{lastTest.note}</div>}</div><div style={{fontSize:10,color:C.t3,background:"rgba(255,255,255,0.04)",padding:"4px 8px",borderRadius:8,alignSelf:"flex-start"}}>{lastTest.date}</div></div>
         </div>}
         <div style={{...card(true)}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-            <div><div style={{fontSize:10,color:C.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>✦ AI-trener</div><div style={{fontSize:14,fontWeight:600}}>Personlig tilbakemelding</div></div>
-            <button onClick={onGetAI} disabled={loadingAI} style={{background:loadingAI?"rgba(255,255,255,0.06)":"linear-gradient(135deg,#f97316,#ea580c)",color:"#fff",border:"none",borderRadius:20,padding:"7px 14px",fontSize:11,cursor:loadingAI?"default":"pointer",fontWeight:700,boxShadow:loadingAI?"none":"0 0 16px rgba(249,115,22,0.35)"}}>{loadingAI?"Analyserer…":"Oppdater"}</button>
+            <div><div style={{fontSize:10,color:C.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>✦ AI-TRENER</div><div style={{fontSize:14,fontWeight:600}}>Personlig tilbakemelding</div></div>
+            <button onClick={onGetAI} disabled={loadingAI} style={{background:loadingAI?"rgba(255,255,255,0.06)":"linear-gradient(135deg,#646ED2,#008287)",color:"#fff",border:"none",borderRadius:20,padding:"7px 14px",fontSize:11,cursor:loadingAI?"default":"pointer",fontWeight:700,boxShadow:loadingAI?"none":"0 0 16px rgba(100,110,210,0.35)",letterSpacing:0.5}}>{loadingAI?"ANALYSERER…":"OPPDATER"}</button>
           </div>
           {aiFeedback?<div style={{fontSize:13,color:"rgba(255,255,255,0.78)",whiteSpace:"pre-wrap",lineHeight:1.8}}>{aiFeedback}</div>:<div style={{fontSize:13,color:C.t3,fontStyle:"italic",lineHeight:1.7}}>Logg noen økter og sjekk inn formen – så gir AI deg personlig tilbakemelding.</div>}
         </div>
@@ -442,15 +447,14 @@
       </div>;
     }
 
-    // ── PLAN ──
     function PlanView({plan,onSave}){
       const[loc,setLoc]=useState(()=>plan.length===7?plan:DAYS.map((d,i)=>plan[i]||{day:d,type:"Hvile",distance:"",note:""}));
       const[saved,setSaved]=useState(false);
       const upd=(i,k,v)=>setLoc(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
       return<div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <div style={{fontWeight:800,fontSize:20,letterSpacing:-0.5,marginBottom:2}}>Ukeplan</div>
+        <div style={{fontWeight:800,fontSize:20,letterSpacing:1,textTransform:"uppercase",marginBottom:2,fontFamily:"Arial Black, Arial"}}>Ukeplan</div>
         {loc.map((d,i)=>{const tc=TYPE_COLORS[d.type]||C.t3;return<div key={i} style={{...card(false),borderLeft:`3px solid ${tc}`,padding:"14px 16px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div style={{fontSize:12,fontWeight:700}}>{d.day}</div><div style={{fontSize:10,padding:"3px 8px",borderRadius:8,background:`${tc}20`,color:tc}}>{d.type}</div></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div style={{fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5}}>{d.day}</div><div style={{fontSize:10,padding:"3px 8px",borderRadius:8,background:`${tc}20`,color:tc}}>{d.type}</div></div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:d.type!=="Hvile"?8:0}}><Sel value={d.type} options={TYPES} onChange={v=>upd(i,"type",v)}/><Inp value={d.distance} onChange={v=>upd(i,"distance",v)} placeholder="Distanse/tid"/></div>
           {d.type!=="Hvile"&&<Inp value={d.note} onChange={v=>upd(i,"note",v)} placeholder="Notat"/>}
         </div>;})}
@@ -458,7 +462,6 @@
       </div>;
     }
 
-    // ── LOG ──
     function LogView({plan,onSave,onShare}){
       const init={date:today(),type:"Rolig",distance:"",duration:"",pace:"",status:"Fullført",note:"",share:false};
       const[f,setF]=useState(init);const[saved,setSaved]=useState(false);
@@ -467,8 +470,8 @@
       const tp=plan.find(d=>d.day===todayDay);
       const submit=async()=>{onSave({...f});if(f.share)await onShare({kind:"økt",type:f.type,status:f.status,distance:f.distance,pace:f.pace,note:f.note,date:f.date});setSaved(true);setTimeout(()=>setSaved(false),2500);setF({...init});};
       return<div style={{display:"flex",flexDirection:"column",gap:12}}>
-        <div style={{fontWeight:800,fontSize:20,letterSpacing:-0.5}}>Logg økt</div>
-        {tp&&tp.type!=="Hvile"&&<div style={{background:"linear-gradient(135deg,rgba(129,140,248,0.08),rgba(99,102,241,0.04))",border:"1px solid rgba(129,140,248,0.2)",borderRadius:14,padding:"12px 16px",display:"flex",gap:10,alignItems:"center"}}><span style={{fontSize:18}}>📋</span><div><div style={{fontSize:10,color:C.pur,letterSpacing:1,textTransform:"uppercase",marginBottom:1}}>Plan i dag</div><div style={{fontSize:12}}>{tp.type}{tp.distance?` · ${tp.distance}`:""}{tp.note?` — ${tp.note}`:""}</div></div></div>}
+        <div style={{fontWeight:800,fontSize:20,letterSpacing:1,textTransform:"uppercase",fontFamily:"Arial Black, Arial"}}>Logg økt</div>
+        {tp&&tp.type!=="Hvile"&&<div style={{background:"linear-gradient(135deg,rgba(100,110,210,0.08),rgba(0,130,135,0.04))",border:"1px solid rgba(100,110,210,0.2)",borderRadius:14,padding:"12px 16px",display:"flex",gap:10,alignItems:"center"}}><span style={{fontSize:18}}>📋</span><div><div style={{fontSize:10,color:C.accent,letterSpacing:1,textTransform:"uppercase",marginBottom:1}}>Plan i dag</div><div style={{fontSize:12}}>{tp.type}{tp.distance?` · ${tp.distance}`:""}{tp.note?` — ${tp.note}`:""}</div></div></div>}
         <div style={{...card(false)}}>
           <Lbl text="Dato"><input type="date" value={f.date} onChange={e=>set("date",e.target.value)} style={iS}/></Lbl>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,margin:"12px 0"}}><Lbl text="Type økt"><Sel value={f.type} options={TYPES} onChange={v=>set("type",v)}/></Lbl><Lbl text="Status"><Sel value={f.status} options={STATUSES} onChange={v=>set("status",v)}/></Lbl></div>
@@ -479,7 +482,6 @@
       </div>;
     }
 
-    // ── FORM ──
     function FormView({forms,onSave,onShare}){
       const[s,setS]=useState({sleep:3,legs:3,motivation:3,energy:3});
       const[share,setShare]=useState(false);const[saved,setSaved]=useState(false);
@@ -490,8 +492,8 @@
       const last14=forms.slice(-14);
       const submit=async()=>{onSave({date:today(),...s});if(share)await onShare({kind:"formsjekk",avg,...s,date:today()});setSaved(true);setTimeout(()=>setSaved(false),2500);};
       return<div style={{display:"flex",flexDirection:"column",gap:12}}>
-        <div style={{fontWeight:800,fontSize:20,letterSpacing:-0.5}}>Formsjekk</div>
-        {todayEntry&&<div style={{background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.2)",borderRadius:14,padding:"10px 14px",fontSize:12,color:C.ok}}>✓ Du har sjekket inn i dag</div>}
+        <div style={{fontWeight:800,fontSize:20,letterSpacing:1,textTransform:"uppercase",fontFamily:"Arial Black, Arial"}}>Formsjekk</div>
+        {todayEntry&&<div style={{background:"rgba(0,130,135,0.08)",border:"1px solid rgba(0,130,135,0.2)",borderRadius:14,padding:"10px 14px",fontSize:12,color:C.ok}}>✓ Du har sjekket inn i dag</div>}
         <div style={{...card(false)}}>
           {items.map(({k,e,t})=><div key={k} style={{marginBottom:20}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{fontSize:13}}>{e} {t}</span><span style={{fontSize:13,fontWeight:700,color:C.accent}}>{s[k]}<span style={{color:C.t3,fontWeight:400}}>/5</span></span></div>
@@ -514,14 +516,13 @@
       </div>;
     }
 
-    // ── TESTS ──
     function TestsView({tests,onSave,onShare}){
       const init={date:today(),type:TEST_TYPES[0],result:"",note:"",share:false};
       const[f,setF]=useState(init);const[saved,setSaved]=useState(false);
       const set=(k,v)=>setF(x=>({...x,[k]:v}));
       const submit=async()=>{if(!f.result)return;onSave({...f});if(f.share)await onShare({kind:"test",type:f.type,result:f.result,note:f.note,date:f.date});setSaved(true);setTimeout(()=>setSaved(false),2500);setF({...init});};
       return<div style={{display:"flex",flexDirection:"column",gap:12}}>
-        <div style={{fontWeight:800,fontSize:20,letterSpacing:-0.5}}>Nøkkeltester</div>
+        <div style={{fontWeight:800,fontSize:20,letterSpacing:1,textTransform:"uppercase",fontFamily:"Arial Black, Arial"}}>Nøkkeltester</div>
         <div style={{...card(false)}}>
           <div style={{fontSize:10,color:C.warn,letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>🏆 Registrer test</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}><Lbl text="Type"><Sel value={f.type} options={TEST_TYPES} onChange={v=>set("type",v)}/></Lbl><Lbl text="Dato"><input type="date" value={f.date} onChange={e=>set("date",e.target.value)} style={iS}/></Lbl></div>
@@ -541,19 +542,18 @@
       </div>;
     }
 
-    // ── TEAM ──
     function TeamView({profiles,feed,currentUser}){
       const members=Object.entries(profiles).sort(([a],[b])=>a.localeCompare(b));
       const mfeed=name=>feed.filter(f=>f.username===name);
       return<div style={{display:"flex",flexDirection:"column",gap:12}}>
-        <div style={{fontWeight:800,fontSize:20,letterSpacing:-0.5}}>Laget</div>
+        <div style={{fontWeight:800,fontSize:20,letterSpacing:1,textTransform:"uppercase",fontFamily:"Arial Black, Arial"}}>Laget</div>
         {members.length===0&&<div style={{...card(false),textAlign:"center",padding:40}}><div style={{fontSize:40,marginBottom:12}}>👥</div><div style={{color:C.t2,fontSize:14}}>Ingen andre på laget ennå</div><div style={{color:C.t3,fontSize:12,marginTop:4}}>Del lenken med lagkameratene!</div></div>}
         {members.map(([name,prof])=>{
           const lp=mfeed(name)[0],isMe=name===currentUser,col=avatarColor(name);
           return<div key={name} style={{...card(false),border:`1px solid ${isMe?C.borderAccent:C.border}`}}>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:lp?12:0}}>
               <div style={{width:44,height:44,borderRadius:12,background:`linear-gradient(135deg,${col},${col}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:14,flexShrink:0,boxShadow:`0 0 12px ${col}40`}}>{initials(name)}</div>
-              <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14}}>{name}{isMe&&<span style={{fontSize:10,color:C.accent,marginLeft:8,background:C.accentBg,padding:"2px 6px",borderRadius:6}}>deg</span>}</div><div style={{fontSize:11,color:col,marginTop:2}}>{prof.etappe}{prof.dist?` · ${distLabel(prof.dist)}`:""} · {prof.goal}</div></div>
+              <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14,textTransform:"uppercase",letterSpacing:0.5}}>{name}{isMe&&<span style={{fontSize:10,color:C.accent,marginLeft:8,background:C.accentBg,padding:"2px 6px",borderRadius:6}}>deg</span>}</div><div style={{fontSize:11,color:col,marginTop:2}}>{prof.etappe}{prof.dist?` · ${distLabel(prof.dist)}`:""} · {prof.goal}</div></div>
             </div>
             {lp&&<div style={{background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"10px 12px",borderLeft:`2px solid ${col}60`}}><div style={{fontSize:9,color:C.t3,letterSpacing:1.5,textTransform:"uppercase",marginBottom:5}}>Siste deling</div><FeedItem item={lp} compact={true}/></div>}
             {!lp&&<div style={{fontSize:11,color:C.t3,fontStyle:"italic",marginTop:8}}>Ingen delte aktiviteter ennå</div>}
