@@ -207,19 +207,25 @@
       </svg>;
     }
 
-    function Onboarding({onSubmit,existing}){
+    function Onboarding({onSubmit,existing,profiles}){
       const[step,setStep]=useState(1);
       const[name,setName]=useState(existing?.name||"");
       const[etappeNr,setEtappeNr]=useState(existing?.etappe?parseInt(existing.etappe.replace("Etappe ","")):null);
       const[goalMode,setGoalMode]=useState("pace");
       const[pace,setPace]=useState("");
       const[finishTime,setFinishTime]=useState("");
+      const[showDelete,setShowDelete]=useState(false);
+
+      const availableEtapper = getAvailableEtapper(profiles||{}, existing?.name||"");
       const etappe=etappeNr?ETAPPER[etappeNr-1]:null;
       const profColor=etappe?(PROFIL_COLOR[etappe.profil]||C.accent):C.accent;
       const derivedFinish=goalMode==="pace"&&pace.includes(":")&&etappe?calcFinishTime(etappe.dist,pace):null;
       const derivedPace=goalMode==="time"&&finishTime.includes(":")&&etappe?calcPace(etappe.dist,finishTime):null;
       const goalString=goalMode==="pace"?`${pace}/km${derivedFinish?` · ${derivedFinish}`:""}`:` ${finishTime}${derivedPace?` · ${derivedPace}/km`:""}`;
       const canDone=goalMode==="pace"?pace.includes(":"):finishTime.includes(":");
+
+      const iS2={...iS,fontSize:18,padding:"14px 16px",borderRadius:14,textAlign:"center",background:"rgba(255,255,255,0.05)",color:"#fff"};
+
       return (
         <div style={{minHeight:"100vh",background:`linear-gradient(to bottom,rgba(10,10,10,0.85),rgba(10,10,10,0.95)),url('/runners.jpg.jpg') center/cover no-repeat`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",padding:"24px 20px 40px",overflowY:"auto"}}>
           <div style={{marginBottom:24,textAlign:"center"}}>
@@ -231,51 +237,83 @@
             {[1,2,3].map(s=><div key={s} style={{width:s===step?28:8,height:8,borderRadius:4,background:s===step?C.accent:s<step?"rgba(100,110,210,0.4)":"rgba(255,255,255,0.1)",transition:"all 0.3s"}}/>)}
           </div>
           <div style={{width:"100%",maxWidth:400}}>
-            {step===1&&<div style={{display:"flex",flexDirection:"column",gap:20}}>
-              <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Hva heter du?</div><div style={{fontSize:13,color:C.t2}}>Vi bruker navnet ditt i laget</div></div>
-              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Skriv inn navn…" autoFocus onKeyDown={e=>e.key==="Enter"&&name.trim()&&setStep(2)} style={{...iS,fontSize:18,padding:"14px 16px",borderRadius:14,textAlign:"center",background:"rgba(255,255,255,0.05)",border:`1px solid ${name.trim()?C.accent:"rgba(255,255,255,0.1)"}`,color:"#fff"}}/>
-              <Btn onClick={()=>setStep(2)} label="Neste →" disabled={!name.trim()}/>
-            </div>}
-            {step===2&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-              <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,marginBottom:4,textTransform:"uppercase",letterSpacing:1}}>Hvilken etappe?</div><div style={{fontSize:13,color:C.t2}}>Se løypen og trykk på nummeret ditt</div></div>
-              <EtappeMap selectedNr={etappeNr}/>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
-                {ETAPPER.map(e=>{const pc=PROFIL_COLOR[e.profil],sel=etappeNr===e.nr;return<button key={e.nr} onClick={()=>setEtappeNr(e.nr)} style={{padding:"11px 4px",borderRadius:12,border:`1px solid ${sel?pc:"rgba(255,255,255,0.08)"}`,background:sel?`${pc}22`:"rgba(255,255,255,0.03)",color:sel?pc:C.t2,fontWeight:sel?800:400,fontSize:15,cursor:"pointer"}}>{e.nr}</button>;})}
+            {step===1&&(
+              <div style={{display:"flex",flexDirection:"column",gap:20}}>
+                <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Hva heter du?</div><div style={{fontSize:13,color:C.t2}}>Vi bruker navnet ditt i laget</div></div>
+                <input value={name} onChange={e=>setName(e.target.value)} placeholder="Skriv inn navn…" autoFocus onKeyDown={e=>e.key==="Enter"&&name.trim()&&setStep(2)} style={{...iS2,border:`1px solid ${name.trim()?C.accent:"rgba(255,255,255,0.1)"}`}}/>
+                <Btn onClick={()=>setStep(2)} label="Neste →" disabled={!name.trim()}/>
+                {existing && (
+                  <div>
+                    <button onClick={()=>setShowDelete(!showDelete)} style={{width:"100%",padding:10,borderRadius:12,border:`1px solid rgba(255,80,35,0.3)`,background:"rgba(255,80,35,0.06)",color:C.err,fontSize:13,cursor:"pointer",marginTop:4}}>
+                      🗑 Slett min profil
+                    </button>
+                    {showDelete && (
+                      <div style={{background:"rgba(255,80,35,0.1)",border:`1px solid rgba(255,80,35,0.3)`,borderRadius:12,padding:14,marginTop:8,textAlign:"center"}}>
+                        <div style={{fontSize:13,color:C.t1,marginBottom:12}}>Er du sikker? Alle dine treningsdata slettes.</div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                          <button onClick={()=>setShowDelete(false)} style={{padding:10,borderRadius:10,border:`1px solid ${C.border}`,background:"transparent",color:C.t2,fontSize:13,cursor:"pointer"}}>Avbryt</button>
+                          <button onClick={async()=>{await deleteProfile(existing.name);window.location.reload();}} style={{padding:10,borderRadius:10,border:"none",background:C.err,color:"#fff",fontSize:13,cursor:"pointer",fontWeight:700}}>Slett</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              {etappe&&<div style={{background:`linear-gradient(135deg,${profColor}12,rgba(26,26,26,0))`,border:`1px solid ${profColor}28`,borderRadius:16,padding:"14px 16px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-                  <div><div style={{fontWeight:800,fontSize:17}}>Etappe {etappe.nr}</div><div style={{fontSize:11,color:C.t2,marginTop:2}}>{etappe.start}</div><div style={{fontSize:11,color:C.t3}}>→ {etappe.veksling}</div></div>
-                  <div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:800,color:profColor}}>{distLabel(etappe.dist)}</div><div style={{fontSize:11,color:profColor,marginTop:2}}>{PROFIL_ICON[etappe.profil]} {etappe.profil}</div></div>
+            )}
+            {step===2&&(
+              <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,marginBottom:4,textTransform:"uppercase",letterSpacing:1}}>Hvilken etappe?</div><div style={{fontSize:13,color:C.t2}}>Grå etapper er allerede tatt</div></div>
+                <EtappeMap selectedNr={etappeNr}/>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
+                  {availableEtapper.map(e=>{
+                    const pc=PROFIL_COLOR[e.profil],sel=etappeNr===e.nr;
+                    return(
+                      <button key={e.nr} onClick={()=>!e.taken&&setEtappeNr(e.nr)} style={{padding:"11px 4px",borderRadius:12,border:`1px solid ${sel?pc:e.taken?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.08)"}`,background:sel?`${pc}22`:e.taken?"rgba(255,255,255,0.02)":"rgba(255,255,255,0.03)",color:sel?pc:e.taken?"rgba(255,255,255,0.2)":C.t2,fontWeight:sel?800:400,fontSize:15,cursor:e.taken?"not-allowed":"pointer",position:"relative"}}>
+                        {e.nr}
+                        {e.taken&&<div style={{position:"absolute",bottom:2,left:"50%",transform:"translateX(-50%)",width:4,height:4,borderRadius:"50%",background:"rgba(255,255,255,0.2)"}}/>}
+                      </button>
+                    );
+                  })}
                 </div>
-                <div style={{borderTop:`1px solid ${profColor}20`,paddingTop:8,marginTop:4}}>
-                  <div style={{fontSize:9,color:C.t3,letterSpacing:1.5,textTransform:"uppercase",marginBottom:2}}>Løypeprofil</div>
-                  <ElevationProfile selectedNr={etappeNr}/>
+                {etappe&&(
+                  <div style={{background:`linear-gradient(135deg,${profColor}12,rgba(26,26,26,0))`,border:`1px solid ${profColor}28`,borderRadius:16,padding:"14px 16px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+                      <div><div style={{fontWeight:800,fontSize:17}}>Etappe {etappe.nr}</div><div style={{fontSize:11,color:C.t2,marginTop:2}}>{etappe.start}</div><div style={{fontSize:11,color:C.t3}}>→ {etappe.veksling}</div></div>
+                      <div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:800,color:profColor}}>{distLabel(etappe.dist)}</div><div style={{fontSize:11,color:profColor,marginTop:2}}>{PROFIL_ICON[etappe.profil]} {etappe.profil}</div></div>
+                    </div>
+                    <div style={{borderTop:`1px solid ${profColor}20`,paddingTop:8,marginTop:4}}>
+                      <div style={{fontSize:9,color:C.t3,letterSpacing:1.5,textTransform:"uppercase",marginBottom:2}}>Løypeprofil</div>
+                      <ElevationProfile selectedNr={etappeNr}/>
+                    </div>
+                  </div>
+                )}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  <button onClick={()=>setStep(1)} style={{padding:12,borderRadius:12,border:`1px solid ${C.border}`,background:"transparent",color:C.t2,fontSize:14,cursor:"pointer"}}>← Tilbake</button>
+                  <Btn onClick={()=>setStep(3)} label="Neste →" disabled={!etappeNr}/>
                 </div>
-              </div>}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                <button onClick={()=>setStep(1)} style={{padding:12,borderRadius:12,border:`1px solid ${C.border}`,background:"transparent",color:C.t2,fontSize:14,cursor:"pointer"}}>← Tilbake</button>
-                <Btn onClick={()=>setStep(3)} label="Neste →" disabled={!etappeNr}/>
               </div>
-            </div>}
-            {step===3&&etappe&&<div style={{display:"flex",flexDirection:"column",gap:20}}>
-              <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,marginBottom:4,textTransform:"uppercase",letterSpacing:1}}>Hva er målet?</div><div style={{fontSize:13,color:C.t2}}>Etappe {etappe.nr} · {distLabel(etappe.dist)}</div></div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,background:"rgba(255,255,255,0.04)",padding:4,borderRadius:14}}>
-                {[{m:"pace",l:"Tempo / km"},{m:"time",l:"Sluttid"}].map(({m,l})=><button key={m} onClick={()=>setGoalMode(m)} style={{padding:"10px",borderRadius:10,border:`1px solid ${goalMode===m?C.borderAccent:"transparent"}`,background:goalMode===m?C.accentBg:"transparent",color:goalMode===m?C.accent:C.t2,fontWeight:goalMode===m?700:400,fontSize:13,cursor:"pointer"}}>{l}</button>)}
+            )}
+            {step===3&&etappe&&(
+              <div style={{display:"flex",flexDirection:"column",gap:20}}>
+                <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,marginBottom:4,textTransform:"uppercase",letterSpacing:1}}>Hva er målet?</div><div style={{fontSize:13,color:C.t2}}>Etappe {etappe.nr} · {distLabel(etappe.dist)}</div></div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,background:"rgba(255,255,255,0.04)",padding:4,borderRadius:14}}>
+                  {[{m:"pace",l:"Tempo / km"},{m:"time",l:"Sluttid"}].map(({m,l})=><button key={m} onClick={()=>setGoalMode(m)} style={{padding:"10px",borderRadius:10,border:`1px solid ${goalMode===m?C.borderAccent:"transparent"}`,background:goalMode===m?C.accentBg:"transparent",color:goalMode===m?C.accent:C.t2,fontWeight:goalMode===m?700:400,fontSize:13,cursor:"pointer"}}>{l}</button>)}
+                </div>
+                {goalMode==="pace"?<div>
+                  <div style={{fontSize:12,color:C.t3,marginBottom:8}}>Tempo per kilometer</div>
+                  <input value={pace} onChange={e=>setPace(e.target.value)} placeholder="f.eks. 5:30" style={{...iS2,border:`1px solid ${pace.includes(":")?C.accent:"rgba(255,255,255,0.1)"}`,fontSize:28,fontWeight:700,letterSpacing:1}}/>
+                  {derivedFinish&&<div style={{textAlign:"center",marginTop:12,fontSize:14,color:C.t2}}>Estimert sluttid: <span style={{color:C.accent,fontWeight:800,fontSize:18}}>{derivedFinish}</span></div>}
+                </div>:<div>
+                  <div style={{fontSize:12,color:C.t3,marginBottom:8}}>Sluttid (MM:SS)</div>
+                  <input value={finishTime} onChange={e=>setFinishTime(e.target.value)} placeholder="f.eks. 6:52" style={{...iS2,border:`1px solid ${finishTime.includes(":")?C.accent:"rgba(255,255,255,0.1)"}`,fontSize:28,fontWeight:700,letterSpacing:1}}/>
+                  {derivedPace&&<div style={{textAlign:"center",marginTop:12,fontSize:14,color:C.t2}}>Estimert tempo: <span style={{color:C.accent,fontWeight:800,fontSize:18}}>{derivedPace}/km</span></div>}
+                </div>}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  <button onClick={()=>setStep(2)} style={{padding:12,borderRadius:12,border:`1px solid ${C.border}`,background:"transparent",color:C.t2,fontSize:14,cursor:"pointer"}}>← Tilbake</button>
+                  <Btn onClick={()=>canDone&&onSubmit(name.trim(),`Etappe ${etappe.nr}`,goalString,etappe)} label="Kom i gang 🏃" disabled={!canDone}/>
+                </div>
               </div>
-              {goalMode==="pace"?<div>
-                <div style={{fontSize:12,color:C.t3,marginBottom:8}}>Tempo per kilometer</div>
-                <input value={pace} onChange={e=>setPace(e.target.value)} placeholder="f.eks. 5:30" style={{...iS,fontSize:28,fontWeight:700,textAlign:"center",padding:"16px",borderRadius:14,letterSpacing:1,border:`1px solid ${pace.includes(":")?C.accent:"rgba(255,255,255,0.1)"}`,color:"#fff"}}/>
-                {derivedFinish&&<div style={{textAlign:"center",marginTop:12,fontSize:14,color:C.t2}}>Estimert sluttid: <span style={{color:C.accent,fontWeight:800,fontSize:18}}>{derivedFinish}</span></div>}
-              </div>:<div>
-                <div style={{fontSize:12,color:C.t3,marginBottom:8}}>Sluttid (MM:SS)</div>
-                <input value={finishTime} onChange={e=>setFinishTime(e.target.value)} placeholder="f.eks. 6:52" style={{...iS,fontSize:28,fontWeight:700,textAlign:"center",padding:"16px",borderRadius:14,letterSpacing:1,border:`1px solid ${finishTime.includes(":")?C.accent:"rgba(255,255,255,0.1)"}`,color:"#fff"}}/>
-                {derivedPace&&<div style={{textAlign:"center",marginTop:12,fontSize:14,color:C.t2}}>Estimert tempo: <span style={{color:C.accent,fontWeight:800,fontSize:18}}>{derivedPace}/km</span></div>}
-              </div>}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                <button onClick={()=>setStep(2)} style={{padding:12,borderRadius:12,border:`1px solid ${C.border}`,background:"transparent",color:C.t2,fontSize:14,cursor:"pointer"}}>← Tilbake</button>
-                <Btn onClick={()=>canDone&&onSubmit(name.trim(),`Etappe ${etappe.nr}`,goalString,etappe)} label="Kom i gang 🏃" disabled={!canDone}/>
-              </div>
-            </div>}
+            )}
           </div>
           <div style={{marginTop:24,fontSize:10,color:"rgba(255,255,255,0.2)",letterSpacing:1}}>🔒 TRENINGSDATA ER PRIVATE SOM STANDARD</div>
         </div>
@@ -353,8 +391,8 @@
       }
 
       if(screen==="loading")return<div style={{height:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12}}><div style={{fontSize:22,fontWeight:800,color:"#fff",letterSpacing:0.5}}>dentsu</div><div style={{color:C.t3,fontSize:11,letterSpacing:2,textTransform:"uppercase"}}>LASTER…</div></div>;
-      if(screen==="onboarding")return<Onboarding onSubmit={onboard}/>;
-      if(screen==="editprofile")return<Onboarding onSubmit={updateProfile} existing={user}/>;
+      if(screen==="onboarding")return<Onboarding onSubmit={onboard} profiles={profiles}/>;
+      if(screen==="editprofile")return<Onboarding onSubmit={updateProfile} existing={user} profiles={profiles}/>;
 
       const tabs=[{id:"dashboard",icon:"📊",label:"Oversikt"},{id:"log",icon:"✏️",label:"Logg"},{id:"form",icon:"💪",label:"Form"},{id:"plan",icon:"📅",label:"Plan"},{id:"tests",icon:"🏆",label:"Tester"},{id:"team",icon:"👥",label:"Laget"}];
 
