@@ -33,22 +33,7 @@
     const sg = async (k) => { try { const r = await fetch(`/api/storage?key=${encodeURIComponent(k)}`); if (!r.ok) return null; const d = await r.json(); return d.value != null ? { value: typeof d.value === "string" ? d.value : JSON.stringify(d.value) } : null; } catch { return null; } };
     const ss = async (k, v) => { try { await fetch("/api/storage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: k, value: typeof v === "string" ? v : JSON.stringify(v) }) }); return { value: v }; } catch { return null; } };
 
-    function importStravaData() {
-      const params = new URLSearchParams(window.location.search);
-      const stravaData = params.get("strava");
-      if (!stravaData) return null;
-      try {
-        const runs = JSON.parse(decodeURIComponent(stravaData));
-        const existing = JSON.parse(localStorage.getItem("my-log") || "[]");
-        const existingKeys = new Set(existing.map(e => e.date + e.distance));
-        const newRuns = runs.filter(r => !existingKeys.has(r.date + r.distance));
-        const merged = [...existing, ...newRuns].sort((a,b) => a.date.localeCompare(b.date));
-        localStorage.setItem("my-log", JSON.stringify(merged));
-        window.history.replaceState({}, "", "/");
-        return newRuns.length;
-      } catch { return 0; }
-    }
-
+    function importStravaData() { return null; }
     function getAvailableEtapper(profiles, currentName) {
       const taken = new Set(
         Object.entries(profiles)
@@ -363,11 +348,7 @@
       const[loadingAI,setLoadingAI]=useState(false);
       const[stravaCount,setStravaCount]=useState(null);
 
-      useEffect(()=>{
-        const count=importStravaData();
-        if(count!==null)setStravaCount(count);
-        init();
-      },[]);
+      useEffect(()=>{ init(); },[]);
 
       async function init(){
         const[nameR,planR,logR,formR,testR,aiR,profR,feedR]=await Promise.all([pg("my-username"),pg("my-plan"),pg("my-log"),pg("my-form"),pg("my-tests"),pg("my-ai"),sg("hk-profiles"),sg("hk-feed")]);
@@ -480,7 +461,6 @@
       const userEtappeNr=user.etappe?parseInt(user.etappe.replace("Etappe ","")):null;
       return(
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <StravaBanner importedCount={stravaCount}/>
           <div style={{background:"linear-gradient(135deg,rgba(100,110,210,0.14),rgba(255,80,35,0.07),rgba(26,26,26,0))",border:"1px solid rgba(100,110,210,0.3)",borderRadius:20,padding:20,position:"relative",overflow:"hidden"}}>
             <div style={{position:"absolute",top:-20,right:-20,width:100,height:100,borderRadius:"50%",background:"radial-gradient(circle,rgba(100,110,210,0.15),transparent 70%)"}}/>
             <div style={{fontSize:10,color:C.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>🎯 MÅL</div>
